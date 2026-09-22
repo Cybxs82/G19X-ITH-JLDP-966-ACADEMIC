@@ -1,4 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Plataforma CFO
+
+Dashboard Next.js con API FastAPI para la plataforma de inteligencia financiera.
+
+## Backend FastAPI
+
+El punto de entrada es [`main.py`](main.py). La API expone documentacion OpenAPI en `/docs` y estos recursos bajo `/api/v1`:
+
+- `GET /dashboard`: resumen con KPIs, forecast, alertas y recomendaciones.
+- `GET /kpis`: KPIs filtrables por periodo.
+- `GET /forecast?days=90`: proyeccion de flujo de caja a 30, 60 o 90 dias.
+- `GET /alerts` y `PATCH /alerts/{id}`: consulta y atencion de alertas.
+- `GET /recommendations` y `POST /feedback`: recomendaciones y feedback del CFO.
+- `POST /sync`: registro de una corrida de sincronizacion.
+- `GET /health`: health check.
+
+La conexion PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /health`. El repositorio actual conserva datos demo en memoria para el dashboard, mientras la conexion ya queda disponible para las consultas del backend. No se guardan credenciales en el codigo.
+
+### Ejecutar la API
+
+```powershell
+py -3.8 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
+.\.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000
+```
+
+Antes de iniciar, edita `.env` con los datos reales de tu PostgreSQL:
+
+```env
+CFO_DATABASE_URL=postgresql+psycopg2://USUARIO:CONTRASENA@HOST:5432/NOMBRE_BASE
+```
+
+La API queda disponible en `http://localhost:8000` y su contrato interactivo en `http://localhost:8000/docs`. Si PostgreSQL no está levantado, FastAPI arranca igualmente y `/health` reporta `database: unavailable`.
+
+## Frontend
 
 ## Getting Started
 
