@@ -33,7 +33,7 @@ class PostgreSQLRepository:
                 current_period = date.today().replace(day=1)
                 cursor.execute(
                     """
-                    INSERT INTO kpi_definitions (id, code, name, category, formula_description)
+                    INSERT INTO definiciones_kpi (id, codigo, nombre, categoria, descripcion_formula)
                     VALUES
                         (1, 'liquidez_inmediata', 'Liquidez inmediata', 'liquidez', 'Activo circulante / pasivo circulante'),
                         (2, 'margen_operativo', 'Margen operativo', 'rentabilidad', 'EBITDA / ingresos totales'),
@@ -43,22 +43,22 @@ class PostgreSQLRepository:
                     """
                 )
                 cursor.execute(
-                    "DELETE FROM kpi_values WHERE id NOT IN (1, 2, 3, 4)"
+                    "DELETE FROM valores_kpi WHERE id NOT IN (1, 2, 3, 4)"
                 )
                 cursor.execute(
                     """
-                    INSERT INTO kpi_values (id, kpi_id, cost_center_id, period, value, calculated_at)
+                    INSERT INTO valores_kpi (id, definicion_kpi_id, centro_costo_id, periodo, valor, calculado_en)
                     VALUES
                         (1, 1, NULL, %s, 2.48, %s),
                         (2, 2, NULL, %s, 18.6, %s),
                         (3, 3, NULL, %s, 24800000, %s),
                         (4, 4, NULL, %s, -3.2, %s)
                     ON CONFLICT (id) DO UPDATE SET
-                        kpi_id = EXCLUDED.kpi_id,
-                        cost_center_id = EXCLUDED.cost_center_id,
-                        period = EXCLUDED.period,
-                        value = EXCLUDED.value,
-                        calculated_at = EXCLUDED.calculated_at
+                        definicion_kpi_id = EXCLUDED.definicion_kpi_id,
+                        centro_costo_id = EXCLUDED.centro_costo_id,
+                        periodo = EXCLUDED.periodo,
+                        valor = EXCLUDED.valor,
+                        calculado_en = EXCLUDED.calculado_en
                     """,
                     (
                         current_period,
@@ -73,55 +73,90 @@ class PostgreSQLRepository:
                 )
 
                 now = datetime.now(timezone.utc)
-                cursor.execute("DELETE FROM alerts WHERE id NOT IN (1, 2, 3)")
+                cursor.execute("DELETE FROM alertas WHERE id NOT IN (1, 2, 3)")
+                cursor.execute("SELECT setval('cuentas_id_seq', COALESCE(MAX(id), 1), TRUE) FROM cuentas")
+                account_ids = {}
+                for code, name in (
+                    ("GASTO-TEC", "Servicios profesionales"),
+                    ("GASTO-OPS", "Logística y distribución"),
+                    ("GASTO-COM", "Campaña de adquisición"),
+                ):
+                    cursor.execute(
+                        """
+                        INSERT INTO cuentas (codigo, nombre, categoria)
+                        VALUES (%s, %s, 'egreso')
+                        ON CONFLICT (codigo) DO UPDATE SET nombre = EXCLUDED.nombre
+                        RETURNING id
+                        """,
+                        (code, name),
+                    )
+                    account_ids[code] = cursor.fetchone()[0]
                 cursor.execute(
                     """
-                    INSERT INTO alerts (id, kpi_id, cost_center_id, period, deviation_pct, severity, status, detected_at)
+                    INSERT INTO alertas (id, cuenta_id, centro_costo_id, periodo, monto_presupuestado, monto_real, desviacion_pct, severidad, estado, detectado_en)
                     VALUES
-                        (1, 4, NULL, %s, 14.2, 'alta', 'activa', %s),
-                        (2, 4, NULL, %s, 7.8, 'media', 'activa', %s),
-                        (3, 4, NULL, %s, 5.6, 'media', 'activa', %s)
+                        (1, %s, NULL, %s, 100000, 114200, 14.2, 'alta', 'nueva', %s),
+                        (2, %s, NULL, %s, 100000, 107800, 7.8, 'media', 'nueva', %s),
+                        (3, %s, NULL, %s, 100000, 105600, 5.6, 'media', 'nueva', %s)
                     ON CONFLICT (id) DO UPDATE SET
-                        kpi_id = EXCLUDED.kpi_id,
-                        cost_center_id = EXCLUDED.cost_center_id,
-                        period = EXCLUDED.period,
-                        deviation_pct = EXCLUDED.deviation_pct,
-                        severity = EXCLUDED.severity,
-                        status = EXCLUDED.status,
-                        detected_at = EXCLUDED.detected_at
+                        cuenta_id = EXCLUDED.cuenta_id,
+                        centro_costo_id = EXCLUDED.centro_costo_id,
+                        periodo = EXCLUDED.periodo,
+                        monto_presupuestado = EXCLUDED.monto_presupuestado,
+                        monto_real = EXCLUDED.monto_real,
+                        desviacion_pct = EXCLUDED.desviacion_pct,
+                        severidad = EXCLUDED.severidad,
+                        estado = EXCLUDED.estado,
+                        detectado_en = EXCLUDED.detectado_en
                     """,
                     (
+                        account_ids["GASTO-TEC"],
                         date(2026, 3, 18),
                         now,
+                        account_ids["GASTO-OPS"],
                         date(2026, 3, 16),
                         now,
+                        account_ids["GASTO-COM"],
                         date(2026, 3, 12),
                         now,
                     ),
                 )
 
-                cursor.execute("DELETE FROM ai_recommendations WHERE id NOT IN (1, 2)")
+                cursor.execute("DELETE FROM recomendaciones_ia WHERE id NOT IN (1, 2)")
                 now = datetime.now(timezone.utc)
                 cursor.execute(
                     """
-                    INSERT INTO ai_recommendations (id, period, prompt_used, generated_text, model_name, generated_at)
+                    INSERT INTO recomendaciones_ia
+                        (id, usuario_id, periodo, situacion, impacto, recomendacion_texto, prioridad, evidencia, version_prompt, prompt_utilizado, texto_generado, nombre_modelo, generado_en)
                     VALUES
-                        (1, %s, %s, %s, %s, %s),
-                        (2, %s, %s, %s, %s, %s)
+                        (1, NULL, %s, %s, %s, %s, 'alta', '{}'::jsonb, 'v1', %s, %s, %s, %s),
+                        (2, NULL, %s, %s, %s, %s, 'media', '{}'::jsonb, 'v1', %s, %s, %s, %s)
                     ON CONFLICT (id) DO UPDATE SET
-                        period = EXCLUDED.period,
-                        prompt_used = EXCLUDED.prompt_used,
-                        generated_text = EXCLUDED.generated_text,
-                        model_name = EXCLUDED.model_name,
-                        generated_at = EXCLUDED.generated_at
+                        periodo = EXCLUDED.periodo,
+                        situacion = EXCLUDED.situacion,
+                        impacto = EXCLUDED.impacto,
+                        recomendacion_texto = EXCLUDED.recomendacion_texto,
+                        prioridad = EXCLUDED.prioridad,
+                        evidencia = EXCLUDED.evidencia,
+                        version_prompt = EXCLUDED.version_prompt,
+                        prompt_utilizado = EXCLUDED.prompt_utilizado,
+                        texto_generado = EXCLUDED.texto_generado,
+                        nombre_modelo = EXCLUDED.nombre_modelo,
+                        generado_en = EXCLUDED.generado_en
                     """,
                     (
                         date.today().replace(day=1),
+                        'Desviación en proveedores de tecnología.',
+                        'El gasto supera el presupuesto mensual.',
+                        'Revisar la renovación de proveedores de tecnología.',
                         'Resumen ejecutivo del periodo financiero actual.',
                         'Revisar la renovacion de proveedores de tecnologia: el gasto supera el presupuesto y concentra la mayor desviacion mensual.',
                         'gpt-4o-mini',
                         now,
                         date.today().replace(day=1),
+                        'Ciclo de cobranza prolongado.',
+                        'La cobranza lenta reduce la caja disponible.',
+                        'Acelerar la cobranza de cuentas por cobrar.',
                         'Resumen ejecutivo del periodo financiero actual.',
                         'Acelerar la cobranza de cuentas por cobrar para liberar caja durante el proximo trimestre.',
                         'gpt-4o-mini',
@@ -129,13 +164,13 @@ class PostgreSQLRepository:
                     ),
                 )
 
-                cursor.execute("SELECT COUNT(*) FROM forecast_runs WHERE id = 1")
+                cursor.execute("SELECT COUNT(*) FROM ejecuciones_pronostico WHERE id = 1")
                 if cursor.fetchone()[0] == 0:
                     now = datetime.now(timezone.utc)
                     start = date.today()
                     cursor.execute(
                         """
-                        INSERT INTO forecast_runs (id, model_name, run_at, training_data_from, training_data_to, notes)
+                        INSERT INTO ejecuciones_pronostico (id, nombre_modelo, ejecutado_en, datos_entrenamiento_desde, datos_entrenamiento_hasta, notas)
                         VALUES (1, %s, %s, %s, %s, %s)
                         ON CONFLICT (id) DO NOTHING
                         RETURNING id
@@ -150,27 +185,27 @@ class PostgreSQLRepository:
                         spread = Decimal("250000") + Decimal(offset) * Decimal("8500")
                         cursor.execute(
                             """
-                            INSERT INTO forecast_values (forecast_run_id, target_date, predicted_value, lower_bound, upper_bound)
+                            INSERT INTO valores_pronostico (ejecucion_pronostico_id, fecha_objetivo, valor_predicho, limite_inferior, limite_superior)
                             VALUES (%s, %s, %s, %s, %s)
-                            ON CONFLICT (forecast_run_id, target_date) DO UPDATE SET
-                                predicted_value = EXCLUDED.predicted_value,
-                                lower_bound = EXCLUDED.lower_bound,
-                                upper_bound = EXCLUDED.upper_bound
+                            ON CONFLICT (ejecucion_pronostico_id, fecha_objetivo) DO UPDATE SET
+                                valor_predicho = EXCLUDED.valor_predicho,
+                                limite_inferior = EXCLUDED.limite_inferior,
+                                limite_superior = EXCLUDED.limite_superior
                             """,
                             (forecast_run_id, target_date, predicted, predicted - spread, predicted + spread),
                         )
 
-                cursor.execute("SELECT max(finished_at) FROM sync_logs")
+                cursor.execute("SELECT max(finalizado_en) FROM registros_sincronizacion")
                 if cursor.fetchone()[0] is None:
                     cursor.execute(
-                        "INSERT INTO data_sources (name, type, connection_config, is_active) VALUES (%s, %s, %s::jsonb, %s) RETURNING id",
+                        "INSERT INTO fuentes_datos (nombre, tipo, configuracion_conexion, esta_activa) VALUES (%s, %s, %s::jsonb, %s) RETURNING id",
                         ("ERP demo", "erp", '{"source": "demo"}', True),
                     )
                     data_source_id = cursor.fetchone()[0]
                     now = datetime.now(timezone.utc)
                     cursor.execute(
                         """
-                        INSERT INTO sync_logs (data_source_id, started_at, finished_at, status, rows_ingested, error_message)
+                        INSERT INTO registros_sincronizacion (fuente_datos_id, iniciado_en, finalizado_en, estado, filas_ingresadas, mensaje_error)
                         VALUES (%s, %s, %s, 'exitoso', 0, NULL)
                         """,
                         (data_source_id, now, now),
@@ -182,13 +217,13 @@ class PostgreSQLRepository:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 query = """
-                    SELECT kv.id, kd.code, kd.name, kd.category, kv.value, kv.period, kv.cost_center_id
-                    FROM kpi_values kv
-                    JOIN kpi_definitions kd ON kd.id = kv.kpi_id
-                    WHERE (%s::date IS NULL OR kv.period >= %s)
-                      AND (%s::date IS NULL OR kv.period <= %s)
-                      AND (%s IS NULL OR kv.cost_center_id = %s)
-                    ORDER BY kv.period DESC, kd.id ASC
+                                        SELECT kv.id, kd.codigo, kd.nombre, kd.categoria, kv.valor, kv.periodo, kv.centro_costo_id
+                                        FROM valores_kpi kv
+                                        JOIN definiciones_kpi kd ON kd.id = kv.definicion_kpi_id
+                                        WHERE (%s::date IS NULL OR kv.periodo >= %s)
+                                            AND (%s::date IS NULL OR kv.periodo <= %s)
+                                            AND (%s IS NULL OR kv.centro_costo_id = %s)
+                                        ORDER BY kv.periodo DESC, kd.id ASC
                 """
                 cursor.execute(query, (period_from, period_from, period_to, period_to, cost_center_id, cost_center_id))
                 rows = cursor.fetchall()
@@ -216,12 +251,12 @@ class PostgreSQLRepository:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT kv.value
-                    FROM kpi_values kv
-                    JOIN kpi_definitions kd ON kd.id = kv.kpi_id
-                    WHERE kd.name = %s
-                      AND kv.period < %s
-                    ORDER BY kv.period DESC
+                    SELECT kv.valor
+                    FROM valores_kpi kv
+                    JOIN definiciones_kpi kd ON kd.id = kv.definicion_kpi_id
+                                        WHERE kd.nombre = %s
+                                            AND kv.periodo < %s
+                                        ORDER BY kv.periodo DESC
                     LIMIT 1
                     """,
                     (kpi_name, period),
@@ -240,10 +275,10 @@ class PostgreSQLRepository:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT kv.value
-                    FROM kpi_values kv
-                    JOIN kpi_definitions kd ON kd.id = kv.kpi_id
-                    WHERE kd.name = %s AND kv.period = %s
+                    SELECT kv.valor
+                    FROM valores_kpi kv
+                    JOIN definiciones_kpi kd ON kd.id = kv.definicion_kpi_id
+                    WHERE kd.nombre = %s AND kv.periodo = %s
                     ORDER BY kv.id DESC
                     LIMIT 1
                     """,
@@ -268,11 +303,11 @@ class PostgreSQLRepository:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT fr.id, fr.model_name, fr.run_at, fv.target_date, fv.predicted_value, fv.lower_bound, fv.upper_bound
-                    FROM forecast_runs fr
-                    JOIN forecast_values fv ON fv.forecast_run_id = fr.id
-                    WHERE fv.target_date <= %s
-                    ORDER BY fv.target_date ASC
+                    SELECT fr.id, fr.nombre_modelo, fr.ejecutado_en, fv.fecha_objetivo, fv.valor_predicho, fv.limite_inferior, fv.limite_superior
+                    FROM ejecuciones_pronostico fr
+                    JOIN valores_pronostico fv ON fv.ejecucion_pronostico_id = fr.id
+                    WHERE fv.fecha_objetivo <= %s
+                    ORDER BY fv.fecha_objetivo ASC
                     LIMIT %s
                     """,
                     ((date.today() + timedelta(days=horizon_days)), horizon_days + 1),
@@ -310,12 +345,12 @@ class PostgreSQLRepository:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 query = """
-                    SELECT id, kpi_id, cost_center_id, period, deviation_pct, severity, status, detected_at, attended_by, attended_at, comment
-                    FROM alerts
-                    WHERE (%s::text IS NULL OR status = %s)
-                      AND (%s::text IS NULL OR severity = %s)
-                      AND (%s IS NULL OR cost_center_id = %s)
-                    ORDER BY deviation_pct DESC, detected_at DESC
+                                        SELECT id, cuenta_id, centro_costo_id, periodo, monto_presupuestado, monto_real, desviacion_pct, severidad, estado, detectado_en, responsable_id, atendido_por, atendido_en, comentario
+                                        FROM alertas
+                                        WHERE (%s::text IS NULL OR estado = %s)
+                                            AND (%s::text IS NULL OR severidad = %s)
+                                            AND (%s IS NULL OR centro_costo_id = %s)
+                                        ORDER BY desviacion_pct DESC, detectado_en DESC
                 """
                 cursor.execute(query, (status.value if status else None, status.value if status else None, severity.value if severity else None, severity.value if severity else None, cost_center_id, cost_center_id))
                 rows = cursor.fetchall()
@@ -323,16 +358,19 @@ class PostgreSQLRepository:
         return [
             AlertResponse(
                 id=row[0],
-                kpi_id=row[1],
+                account_id=row[1],
                 cost_center_id=row[2],
                 period=row[3],
-                deviation_pct=Decimal(str(row[4])),
-                severity=AlertSeverity(row[5]),
-                status=AlertStatus(row[6]),
-                detected_at=row[7],
-                attended_by=row[8],
-                attended_at=row[9],
-                comment=row[10],
+                budgeted_amount=Decimal(str(row[4])),
+                actual_amount=Decimal(str(row[5])),
+                deviation_pct=Decimal(str(row[6])),
+                severity=AlertSeverity(row[7]),
+                status=AlertStatus(row[8]),
+                detected_at=row[9],
+                responsible_id=row[10],
+                attended_by=row[11],
+                attended_at=row[12],
+                comment=row[13],
             )
             for row in rows
         ]
@@ -348,15 +386,16 @@ class PostgreSQLRepository:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    UPDATE alerts
-                    SET status = %s,
-                        comment = %s,
-                        attended_by = %s,
-                        attended_at = %s
+                    UPDATE alertas
+                    SET estado = %s,
+                        comentario = %s,
+                        responsable_id = %s,
+                        atendido_por = %s,
+                        atendido_en = %s
                     WHERE id = %s
-                    RETURNING id, kpi_id, cost_center_id, period, deviation_pct, severity, status, detected_at, attended_by, attended_at, comment
+                    RETURNING id, cuenta_id, centro_costo_id, periodo, monto_presupuestado, monto_real, desviacion_pct, severidad, estado, detectado_en, responsable_id, atendido_por, atendido_en, comentario
                     """,
-                    (status.value, comment, str(attended_by) if attended_by else None, datetime.now(timezone.utc) if status != AlertStatus.activa else None, alert_id),
+                    (status.value, comment, str(attended_by) if attended_by else None, str(attended_by) if attended_by else None, datetime.now(timezone.utc) if status in {AlertStatus.cerrada, AlertStatus.falsa} else None, alert_id),
                 )
                 row = cursor.fetchone()
                 conn.commit()
@@ -366,26 +405,29 @@ class PostgreSQLRepository:
 
         return AlertResponse(
             id=row[0],
-            kpi_id=row[1],
+            account_id=row[1],
             cost_center_id=row[2],
             period=row[3],
-            deviation_pct=Decimal(str(row[4])),
-            severity=AlertSeverity(row[5]),
-            status=AlertStatus(row[6]),
-            detected_at=row[7],
-            attended_by=row[8],
-            attended_at=row[9],
-            comment=row[10],
+            budgeted_amount=Decimal(str(row[4])),
+            actual_amount=Decimal(str(row[5])),
+            deviation_pct=Decimal(str(row[6])),
+            severity=AlertSeverity(row[7]),
+            status=AlertStatus(row[8]),
+            detected_at=row[9],
+            responsible_id=row[10],
+            attended_by=row[11],
+            attended_at=row[12],
+            comment=row[13],
         )
 
     def list_recommendations(self, period: Optional[date] = None) -> List[RecommendationResponse]:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 query = """
-                    SELECT id, period, generated_text, model_name, generated_at
-                    FROM ai_recommendations
-                    WHERE %s::date IS NULL OR period = %s
-                    ORDER BY generated_at DESC
+                    SELECT id, usuario_id, periodo, situacion, impacto, recomendacion_texto, prioridad, evidencia, version_prompt, texto_generado, nombre_modelo, generado_en
+                    FROM recomendaciones_ia
+                    WHERE %s::date IS NULL OR periodo = %s
+                    ORDER BY generado_en DESC
                 """
                 cursor.execute(query, (period, period))
                 rows = cursor.fetchall()
@@ -393,10 +435,17 @@ class PostgreSQLRepository:
         return [
             RecommendationResponse(
                 id=row[0],
-                period=row[1],
-                generated_text=row[2],
-                model_name=row[3],
-                generated_at=row[4],
+                user_id=row[1],
+                period=row[2],
+                situation=row[3],
+                impact=row[4],
+                recommendation_text=row[5],
+                priority=row[6],
+                evidence=row[7],
+                prompt_version=row[8],
+                generated_text=row[9],
+                model_name=row[10],
+                generated_at=row[11],
             )
             for row in rows
         ]
@@ -407,9 +456,9 @@ class PostgreSQLRepository:
                 created_at = datetime.now(timezone.utc)
                 cursor.execute(
                     """
-                    INSERT INTO ai_feedback (recommendation_id, user_id, feedback, comment, created_at)
+                    INSERT INTO retroalimentacion_ia (recomendacion_id, usuario_id, retroalimentacion, comentario, creado_en)
                     VALUES (%s, %s, %s, %s, %s)
-                    RETURNING id, recommendation_id, user_id, feedback, comment, created_at
+                    RETURNING id, recomendacion_id, usuario_id, retroalimentacion, comentario, creado_en
                     """,
                     (feedback.recommendation_id, str(feedback.user_id), feedback.feedback.value, feedback.comment, created_at),
                 )
@@ -431,7 +480,7 @@ class PostgreSQLRepository:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO sync_logs (data_source_id, started_at, finished_at, status, rows_ingested, error_message)
+                    INSERT INTO registros_sincronizacion (fuente_datos_id, iniciado_en, finalizado_en, estado, filas_ingresadas, mensaje_error)
                     VALUES (%s, %s, %s, 'exitoso', 0, NULL)
                     RETURNING id
                     """,
@@ -454,7 +503,7 @@ class PostgreSQLRepository:
     def last_sync(self) -> datetime:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute("SELECT MAX(finished_at) FROM sync_logs")
+                cursor.execute("SELECT MAX(finalizado_en) FROM registros_sincronizacion")
                 row = cursor.fetchone()
                 self._last_sync = row[0] or datetime.now(timezone.utc)
         return self._last_sync

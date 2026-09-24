@@ -54,6 +54,16 @@ input { font: inherit; }
   background: radial-gradient(circle at top left, rgba(31, 157, 138, 0.16), transparent 35%), var(--paper);
 }
 
+.auth-loading {
+  align-items: center;
+  background: var(--paper);
+  color: var(--muted);
+  display: flex;
+  font-size: 14px;
+  justify-content: center;
+  min-height: 100vh;
+}
+
 .auth-panel {
   background: rgba(255, 255, 255, 0.34);
   backdrop-filter: blur(8px);
@@ -215,6 +225,24 @@ input { font: inherit; }
   font-size: 14px;
 }
 
+.auth-error {
+  background: rgba(231, 125, 104, 0.12);
+  border: 1px solid rgba(231, 125, 104, 0.35);
+  border-radius: 10px;
+  color: var(--coral);
+  font-size: 12px;
+  margin: -8px 0 18px;
+  padding: 10px 12px;
+}
+
+.auth-database-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 18px 0 0;
+  text-align: center;
+}
+
 .primary-button,
 .secondary-button,
 .export-button,
@@ -354,6 +382,16 @@ input { font: inherit; }
   width: 29px;
 }
 .more { color: #7da1a5; margin-left: auto; }
+.logout-button {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: #b8ced1;
+  font-size: 10px;
+  margin-left: auto;
+  padding: 6px 8px;
+}
+.logout-button:hover { background: var(--sidebar-soft); color: white; }
 .content-area { flex: 1; min-width: 0; }
 .topbar {
   align-items: center;

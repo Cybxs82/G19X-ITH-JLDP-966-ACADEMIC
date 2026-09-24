@@ -14,9 +14,10 @@ class UserRole(str, Enum):
 
 
 class AlertStatus(str, Enum):
-    activa = "activa"
-    atendida = "atendida"
-    descartada = "descartada"
+    nueva = "nueva"
+    en_revision = "en_revision"
+    cerrada = "cerrada"
+    falsa = "falsa"
 
 
 class AlertSeverity(str, Enum):
@@ -68,13 +69,16 @@ class ForecastResponse(BaseModel):
 
 class AlertResponse(BaseModel):
     id: int
-    kpi_id: Optional[int] = None
+    account_id: int
     cost_center_id: Optional[int] = None
     period: date
+    budgeted_amount: Decimal
+    actual_amount: Decimal
     deviation_pct: Decimal
     severity: AlertSeverity
     status: AlertStatus
     detected_at: datetime
+    responsible_id: Optional[UUID] = None
     attended_by: Optional[UUID] = None
     attended_at: Optional[datetime] = None
     comment: Optional[str] = None
@@ -84,11 +88,19 @@ class AlertUpdate(BaseModel):
     status: AlertStatus
     comment: Optional[str] = Field(default=None, max_length=2000)
     attended_by: Optional[UUID] = None
+    responsible_id: Optional[UUID] = None
 
 
 class RecommendationResponse(BaseModel):
     id: int
+    user_id: Optional[UUID] = None
     period: date
+    situation: str
+    impact: Optional[str] = None
+    recommendation_text: str
+    priority: str
+    evidence: Optional[dict] = None
+    prompt_version: str
     generated_text: str
     model_name: str
     generated_at: datetime
@@ -123,7 +135,31 @@ class IngestionResponse(BaseModel):
     sync_log_id: int
     data_source_id: int
     rows_ingested: int
+    rows_rejected: int = 0
     status: str
+
+
+class RegisterRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=255)
+    full_name: str = Field(min_length=2, max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=255)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AuthUserResponse(BaseModel):
+    id: UUID
+    email: str
+    full_name: str
+    role: UserRole
+    is_active: bool
+
+
+class AuthResponse(BaseModel):
+    user: AuthUserResponse
 
 
 class DashboardResponse(BaseModel):

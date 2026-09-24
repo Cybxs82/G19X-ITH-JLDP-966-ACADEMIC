@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { AuthUser } from "@/controllers/auth-controller";
 import type { FinancialDashboard } from "@/models/financial-model";
 
-type DashboardViewProps = { dashboard: FinancialDashboard };
+type DashboardViewProps = { dashboard: FinancialDashboard; user: AuthUser; onLogout: () => Promise<void> };
 
-export function DashboardView({ dashboard }: DashboardViewProps) {
+export function DashboardView({ dashboard, user, onLogout }: DashboardViewProps) {
   const [activeArea, setActiveArea] = useState("Todas");
   const [activeNav, setActiveNav] = useState("Resumen");
   const [showAllAlerts, setShowAllAlerts] = useState(false);
@@ -79,12 +80,14 @@ export function DashboardView({ dashboard }: DashboardViewProps) {
           )}
 
           <div className="profile">
-            <div className="avatar">MR</div>
+            <div className="avatar">{user.full_name.slice(0, 2).toUpperCase()}</div>
             <div>
-              <strong>Mariana Ríos</strong>
-              <small>CFO · Administradora</small>
+              <strong>{user.full_name}</strong>
+              <small>{user.role}</small>
             </div>
-            <span className="more">...</span>
+            <button type="button" className="logout-button" onClick={() => void onLogout()}>
+              Salir
+            </button>
           </div>
         </div>
       </aside>
@@ -107,7 +110,7 @@ export function DashboardView({ dashboard }: DashboardViewProps) {
             >
               {theme === "dark" ? "☀" : "☾"}
             </button>
-            <div className="mini-avatar">MR</div>
+            <div className="mini-avatar">{user.full_name.slice(0, 2).toUpperCase()}</div>
           </div>
         </header>
 

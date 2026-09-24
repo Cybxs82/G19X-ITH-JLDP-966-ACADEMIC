@@ -1,13 +1,15 @@
 from datetime import date, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Request, Response, UploadFile
 
 from ..models.schemas import (
     AlertResponse,
     AlertSeverity,
     AlertStatus,
     AlertUpdate,
+    AuthResponse,
+    AuthUserResponse,
     DashboardResponse,
     FeedbackCreate,
     FeedbackResponse,
@@ -15,15 +17,61 @@ from ..models.schemas import (
     IngestionResponse,
     KpiResponse,
     RecommendationResponse,
+    RegisterRequest,
+    LoginRequest,
     SyncCreate,
     SyncResponse,
 )
 from ..repositories.financial_repository import PostgreSQLRepository
 from ..services.ingestion_service import ingest_file
+from ..services.auth_service import SESSION_COOKIE, authenticate_user, get_session_user, register_user, revoke_session
 
 
 def create_router(repository: PostgreSQLRepository) -> APIRouter:
     router = APIRouter()
+
+    @router.post("/auth/register", response_model=AuthResponse, status_code=201)
+    def register(payload: RegisterRequest, response: Response) -> AuthResponse:
+        try:
+            user = register_user(payload.email, payload.full_name, payload.password)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+        return AuthResponse(user=AuthUserResponse(**user))
+
+    @router.post("/auth/login", response_model=AuthResponse)
+    def login(payload: LoginRequest, request: Request, response: Response) -> AuthResponse:
+        try:
+            user, token = authenticate_user(
+                payload.email,
+                payload.password,
+                request.headers.get("user-agent"),
+                request.client.host if request.client else None,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=401, detail=str(error)) from error
+        response.set_cookie(
+            SESSION_COOKIE,
+            token,
+            max_age=60 * 60 * 24 * 7,
+            httponly=True,
+            samesite="lax",
+            secure=False,
+            path="/",
+        )
+        return AuthResponse(user=AuthUserResponse(**user))
+
+    @router.get("/auth/session", response_model=AuthResponse)
+    def session(request: Request) -> AuthResponse:
+        user = get_session_user(request.cookies.get(SESSION_COOKIE))
+        if user is None:
+            raise HTTPException(status_code=401, detail="Sesión no iniciada")
+        return AuthResponse(user=AuthUserResponse(**user))
+
+    @router.post("/auth/logout", status_code=204)
+    def logout(request: Request, response: Response) -> Response:
+        revoke_session(request.cookies.get(SESSION_COOKIE))
+        response.delete_cookie(SESSION_COOKIE, path="/")
+        return response
 
     @router.get("/kpis", response_model=List[KpiResponse])
     def get_kpis(period_from: Optional[date] = None, period_to: Optional[date] = None) -> List[KpiResponse]:

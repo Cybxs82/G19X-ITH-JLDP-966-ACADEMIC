@@ -122,7 +122,7 @@ def extract_pdf(content: bytes) -> List[Dict[str, Any]]:
     return rows
 
 
-def extract_rows(file_name: str, content: bytes) -> List[Dict[str, Any]]:
+def extract_raw_rows(file_name: str, content: bytes) -> List[Dict[str, Any]]:
     suffix = Path(file_name).suffix.lower()
     if suffix in (".xlsx", ".xlsm"):
         raw_rows = extract_excel(content)
@@ -132,7 +132,11 @@ def extract_rows(file_name: str, content: bytes) -> List[Dict[str, Any]]:
         raw_rows = extract_pdf(content)
     else:
         raise ValueError("Formato no soportado: %s" % suffix)
-    return [_canonical_row(row, index) for index, row in enumerate(raw_rows, start=2)]
+    return raw_rows
+
+
+def extract_rows(file_name: str, content: bytes) -> List[Dict[str, Any]]:
+    return [_canonical_row(row, index) for index, row in enumerate(extract_raw_rows(file_name, content), start=2)]
 
 
 def _json_value(value: Any) -> Any:
@@ -145,8 +149,15 @@ def _json_value(value: Any) -> Any:
 
 def _source_id(cursor: Any, source_type: str, file_name: str) -> int:
     cursor.execute(
+        "SELECT id FROM fuentes_datos WHERE nombre = %s AND tipo = %s::fuente_tipo ORDER BY id LIMIT 1",
+        (file_name, source_type),
+    )
+    existing = cursor.fetchone()
+    if existing is not None:
+        return existing[0]
+    cursor.execute(
         """
-        INSERT INTO data_sources (name, type, connection_config, is_active)
+        INSERT INTO fuentes_datos (nombre, tipo, configuracion_conexion, esta_activa)
         VALUES (%s, %s::fuente_tipo, %s::jsonb, TRUE)
         RETURNING id
         """,
@@ -155,12 +166,12 @@ def _source_id(cursor: Any, source_type: str, file_name: str) -> int:
     return cursor.fetchone()[0]
 
 
-def _upsert_transaction(cursor: Any, row: Dict[str, Any], source_type: str) -> None:
+def _upsert_transaction(cursor: Any, row: Dict[str, Any], source_type: str, data_source_id: int) -> None:
     cursor.execute(
         """
-        INSERT INTO accounts (code, name, category)
+        INSERT INTO cuentas (codigo, nombre, categoria)
         VALUES (%s, %s, %s)
-        ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category
+        ON CONFLICT (codigo) DO UPDATE SET nombre = EXCLUDED.nombre, categoria = EXCLUDED.categoria
         RETURNING id
         """,
         (row["account_code"], row["account_name"], row["category"]),
@@ -168,9 +179,9 @@ def _upsert_transaction(cursor: Any, row: Dict[str, Any], source_type: str) -> N
     account_id = cursor.fetchone()[0]
     cursor.execute(
         """
-        INSERT INTO cost_centers (code, name)
+        INSERT INTO centros_costo (codigo, nombre)
         VALUES (%s, %s)
-        ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name
+        ON CONFLICT (codigo) DO UPDATE SET nombre = EXCLUDED.nombre
         RETURNING id
         """,
         (row["cost_center_code"], row["cost_center_name"]),
@@ -178,48 +189,48 @@ def _upsert_transaction(cursor: Any, row: Dict[str, Any], source_type: str) -> N
     cost_center_id = cursor.fetchone()[0]
     cursor.execute(
         """
-        INSERT INTO transactions
-            (account_id, cost_center_id, source_type, source_reference, amount, currency, transaction_date, description)
-        VALUES (%s, %s, %s::fuente_tipo, %s, %s, %s, %s, %s)
-        ON CONFLICT (source_type, source_reference) DO UPDATE SET
-            account_id = EXCLUDED.account_id,
-            cost_center_id = EXCLUDED.cost_center_id,
-            amount = EXCLUDED.amount,
-            currency = EXCLUDED.currency,
-            transaction_date = EXCLUDED.transaction_date,
-            description = EXCLUDED.description
+        INSERT INTO transacciones
+            (cuenta_id, centro_costo_id, fuente_datos_id, tipo_fuente, referencia_fuente, monto, moneda, fecha_transaccion, descripcion)
+        VALUES (%s, %s, %s, %s::fuente_tipo, %s, %s, %s, %s, %s)
+        ON CONFLICT (fuente_datos_id, referencia_fuente) DO UPDATE SET
+            cuenta_id = EXCLUDED.cuenta_id,
+            centro_costo_id = EXCLUDED.centro_costo_id,
+            monto = EXCLUDED.monto,
+            moneda = EXCLUDED.moneda,
+            fecha_transaccion = EXCLUDED.fecha_transaccion,
+            descripcion = EXCLUDED.descripcion
         """,
-        (account_id, cost_center_id, source_type, row["source_reference"], row["amount"], row["currency"], row["transaction_date"], row["description"]),
+        (account_id, cost_center_id, data_source_id, source_type, row["source_reference"], row["amount"], row["currency"], row["transaction_date"], row["description"]),
     )
 
 
 def _refresh_kpis(cursor: Any) -> None:
     cursor.execute(
         """
-        SELECT COALESCE(SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END), 0),
-               COALESCE(SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END), 0),
-               COALESCE(SUM(t.amount), 0)
-        FROM transactions t
+         SELECT COALESCE(SUM(CASE WHEN t.monto > 0 THEN t.monto ELSE 0 END), 0),
+             COALESCE(SUM(CASE WHEN t.monto < 0 THEN ABS(t.monto) ELSE 0 END), 0),
+             COALESCE(SUM(t.monto), 0)
+         FROM transacciones t
         """
     )
     income, expenses, net = [Decimal(str(value)) for value in cursor.fetchone()]
     liquidity = income / expenses if expenses else Decimal("0")
     margin = net / income * Decimal("100") if income else Decimal("0")
-    cursor.execute("SELECT COALESCE(SUM(b.budgeted_amount), 0) FROM budgets b")
+    cursor.execute("SELECT COALESCE(SUM(b.monto_presupuestado), 0) FROM presupuestos b")
     budget = Decimal(str(cursor.fetchone()[0]))
     deviation = ((expenses - budget) / budget * Decimal("100")) if budget else Decimal("0")
     values = [(1, liquidity), (2, margin), (3, income), (4, deviation)]
     period = date.today().replace(day=1)
     cursor.execute(
-        "DELETE FROM kpi_values WHERE kpi_id IN (1, 2, 3, 4) AND cost_center_id IS NULL AND period = %s",
+        "DELETE FROM valores_kpi WHERE definicion_kpi_id IN (1, 2, 3, 4) AND centro_costo_id IS NULL AND periodo = %s",
         (period,),
     )
     for kpi_id, value in values:
         cursor.execute(
             """
-            INSERT INTO kpi_values (kpi_id, cost_center_id, period, value, calculated_at)
+            INSERT INTO valores_kpi (definicion_kpi_id, centro_costo_id, periodo, valor, calculado_en)
             VALUES (%s, NULL, %s, %s, %s)
-            ON CONFLICT (kpi_id, cost_center_id, period) DO UPDATE SET value = EXCLUDED.value, calculated_at = EXCLUDED.calculated_at
+            ON CONFLICT (definicion_kpi_id, centro_costo_id, periodo) DO UPDATE SET valor = EXCLUDED.valor, calculado_en = EXCLUDED.calculado_en
             """,
             (kpi_id, period, value, datetime.now(timezone.utc)),
         )
@@ -229,7 +240,7 @@ def refresh_kpis_from_transactions() -> bool:
     """Recalculate materialized KPIs when normalized ERP data exists."""
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT EXISTS (SELECT 1 FROM transactions LIMIT 1)")
+            cursor.execute("SELECT EXISTS (SELECT 1 FROM transacciones LIMIT 1)")
             has_transactions = bool(cursor.fetchone()[0])
             if has_transactions:
                 _refresh_kpis(cursor)
@@ -240,33 +251,63 @@ def refresh_kpis_from_transactions() -> bool:
 def ingest_file(file_name: str, content: bytes, source_type: str = "erp") -> Dict[str, Any]:
     if source_type not in ("erp", "banco"):
         raise ValueError("source_type debe ser erp o banco")
-    rows = extract_rows(file_name, content)
-    if not rows:
+    raw_rows = extract_raw_rows(file_name, content)
+    if not raw_rows:
         raise ValueError("El archivo no contiene filas financieras")
-    for row in rows:
+    rows: List[Dict[str, Any]] = []
+    rejected_rows: List[Tuple[Dict[str, Any], str]] = []
+    for index, raw_row in enumerate(raw_rows, start=2):
+        try:
+            row = _canonical_row(raw_row, index)
+        except ValueError as error:
+            rejected_rows.append((raw_row, str(error)))
+            continue
         row["source_reference"] = "%s:%s" % (Path(file_name).name, row["source_reference"])
+        rows.append(row)
+    if not rows and rejected_rows:
+        raise ValueError("Todas las filas fueron rechazadas durante la normalización")
 
     started = datetime.now(timezone.utc)
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             data_source_id = _source_id(cursor, source_type, file_name)
             cursor.execute(
-                "INSERT INTO sync_logs (data_source_id, started_at, status, rows_ingested) VALUES (%s, %s, 'en_proceso', 0) RETURNING id",
+                "INSERT INTO registros_sincronizacion (fuente_datos_id, iniciado_en, estado, filas_ingresadas) VALUES (%s, %s, 'en_proceso', 0) RETURNING id",
                 (data_source_id, started),
             )
             sync_log_id = cursor.fetchone()[0]
-            staging_table = "staging_bank_raw" if source_type == "banco" else "staging_erp_raw"
+            staging_table = "datos_temporales_banco" if source_type == "banco" else "datos_temporales_erp"
             for row in rows:
                 payload = {key: _json_value(value) for key, value in row.items()}
                 cursor.execute(
-                    "INSERT INTO %s (sync_log_id, raw_payload, ingested_at) VALUES (%%s, %%s::jsonb, %%s)" % staging_table,
+                    "INSERT INTO %s (registro_sincronizacion_id, carga_cruda, ingresado_en) VALUES (%%s, %%s::jsonb, %%s)" % staging_table,
                     (sync_log_id, json.dumps(payload), started),
                 )
-                _upsert_transaction(cursor, row, source_type)
+                _upsert_transaction(cursor, row, source_type, data_source_id)
+            for raw_row, reason in rejected_rows:
+                payload = {key: _json_value(value) for key, value in raw_row.items()}
+                cursor.execute(
+                    """
+                    INSERT INTO registros_sincronizacion_rechazados
+                        (registro_sincronizacion_id, carga_cruda, motivo_rechazo)
+                    VALUES (%s, %s::jsonb, %s)
+                    """,
+                    (sync_log_id, json.dumps(payload), reason),
+                )
             _refresh_kpis(cursor)
             cursor.execute(
-                "UPDATE sync_logs SET finished_at = %s, status = 'exitoso', rows_ingested = %s WHERE id = %s",
-                (datetime.now(timezone.utc), len(rows), sync_log_id),
+                """
+                UPDATE registros_sincronizacion
+                SET finalizado_en = %s, estado = 'exitoso', filas_ingresadas = %s, filas_rechazadas = %s
+                WHERE id = %s
+                """,
+                (datetime.now(timezone.utc), len(rows), len(rejected_rows), sync_log_id),
             )
             conn.commit()
-    return {"sync_log_id": sync_log_id, "data_source_id": data_source_id, "rows_ingested": len(rows), "status": "exitoso"}
+    return {
+        "sync_log_id": sync_log_id,
+        "data_source_id": data_source_id,
+        "rows_ingested": len(rows),
+        "rows_rejected": len(rejected_rows),
+        "status": "exitoso",
+    }

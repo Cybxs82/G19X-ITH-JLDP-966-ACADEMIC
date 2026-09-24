@@ -30,7 +30,7 @@ El punto de entrada es [`main.py`](main.py). La API expone documentacion OpenAPI
 - `POST /ingestion/files?source_type=erp`: carga automatizada de archivos `.xlsx`, `.csv` o `.pdf`.
 - `GET /health`: health check.
 
-La conexion PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /health`. La Fase 2 conserva el archivo recibido en `staging_erp_raw` o `staging_bank_raw`, normaliza cuentas, centros de costo y transacciones, y recalcula los KPIs desde `transactions`. Si no hay transacciones cargadas, la aplicacion mantiene el seed demo como fallback de desarrollo. No se guardan credenciales en el codigo.
+La conexion PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /health`. La Fase 2 conserva el archivo recibido en `datos_temporales_erp` o `datos_temporales_banco`, normaliza cuentas, centros de costo y transacciones, registra filas rechazadas en `registros_sincronizacion_rechazados` y recalcula los KPIs desde `transacciones`. Si no hay transacciones cargadas, la aplicacion mantiene el seed demo como fallback de desarrollo. No se guardan credenciales en el codigo.
 
 ### Carga automatizada de datos
 

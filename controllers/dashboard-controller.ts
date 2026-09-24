@@ -20,7 +20,7 @@ type ApiDashboard = {
     id: number;
     deviation_pct: number;
     severity: "baja" | "media" | "alta";
-    status: "activa" | "atendida" | "descartada";
+    status: "nueva" | "en_revision" | "cerrada" | "falsa";
     period: string;
   }>;
   recommendations: Array<{
@@ -58,7 +58,7 @@ function mapDashboard(data: ApiDashboard): FinancialDashboard {
       lower: Number(point.lower_bound ?? point.predicted_value) / 1000000,
       upper: Number(point.upper_bound ?? point.predicted_value) / 1000000,
     })),
-    alerts: data.alerts.filter((alert) => alert.status === "activa").map((alert) => ({
+    alerts: data.alerts.filter((alert) => alert.status !== "cerrada" && alert.status !== "falsa").map((alert) => ({
       id: alert.id,
       title: "Desviación presupuestal",
       detail: `Periodo ${alert.period}`,
@@ -76,7 +76,7 @@ function mapDashboard(data: ApiDashboard): FinancialDashboard {
 
 export async function getFinancialDashboard(): Promise<FinancialDashboard> {
   try {
-    const response = await fetch(`${apiUrl}/dashboard`, { cache: "no-store" });
+    const response = await fetch(`${apiUrl}/dashboard`, { credentials: "include", cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Dashboard API returned ${response.status}`);
     }
