@@ -1,10 +1,17 @@
 import os
 from functools import lru_cache
+from pathlib import Path
 from typing import List
 
 from dotenv import load_dotenv
 
-load_dotenv()
+
+def load_environment() -> None:
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+    load_dotenv(dotenv_path=env_path, override=False)
+
+
+load_environment()
 
 
 class Settings:
@@ -28,4 +35,5 @@ class Settings:
 
 @lru_cache
 def get_settings() -> Settings:
+    load_environment()
     return Settings()

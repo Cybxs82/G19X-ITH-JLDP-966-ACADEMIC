@@ -1,7 +1,13 @@
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Generator, Optional, Tuple
 
+from dotenv import load_dotenv
+
 from .config import get_settings
+
+
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env", override=False)
 
 
 def _psycopg_url(database_url: str) -> str:
