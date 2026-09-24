@@ -1,10 +1,9 @@
 from datetime import date, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
-from .repository import InMemoryRepository
-from .schemas import (
+from ..models.schemas import (
     AlertResponse,
     AlertSeverity,
     AlertStatus,
@@ -13,14 +12,17 @@ from .schemas import (
     FeedbackCreate,
     FeedbackResponse,
     ForecastResponse,
+    IngestionResponse,
     KpiResponse,
     RecommendationResponse,
     SyncCreate,
     SyncResponse,
 )
+from ..repositories.financial_repository import PostgreSQLRepository
+from ..services.ingestion_service import ingest_file
 
 
-def create_router(repository: InMemoryRepository) -> APIRouter:
+def create_router(repository: PostgreSQLRepository) -> APIRouter:
     router = APIRouter()
 
     @router.get("/kpis", response_model=List[KpiResponse])
@@ -55,6 +57,16 @@ def create_router(repository: InMemoryRepository) -> APIRouter:
     @router.post("/sync", response_model=SyncResponse, status_code=202)
     def create_sync(payload: SyncCreate) -> SyncResponse:
         return repository.create_sync(payload.data_source_id)
+
+    @router.post("/ingestion/files", response_model=IngestionResponse, status_code=202)
+    async def ingest_financial_file(file: UploadFile = File(...), source_type: str = Query(default="erp")) -> IngestionResponse:
+        if source_type not in {"erp", "banco"}:
+            raise HTTPException(status_code=422, detail="source_type debe ser erp o banco")
+        try:
+            result = ingest_file(file.filename or "financial-file", await file.read(), source_type)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return IngestionResponse(**result)
 
     @router.get("/dashboard", response_model=DashboardResponse)
     def get_dashboard(

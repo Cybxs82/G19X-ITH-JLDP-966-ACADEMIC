@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api import create_router
-from backend.config import get_settings
-from backend.database import check_database_connection
-from backend.repository import repository
-from backend.schemas import HealthResponse
+from backend.controllers.financial_controller import create_router
+from backend.infrastructure.config import get_settings
+from backend.infrastructure.database import check_database_connection
+from backend.models.schemas import HealthResponse
+from backend.repositories.financial_repository import repository
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name, version="0.1.0", description="API de inteligencia financiera para CFO")

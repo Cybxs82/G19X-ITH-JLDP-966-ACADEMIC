@@ -119,6 +119,13 @@ class SyncResponse(BaseModel):
     rows_ingested: int = 0
 
 
+class IngestionResponse(BaseModel):
+    sync_log_id: int
+    data_source_id: int
+    rows_ingested: int
+    status: str
+
+
 class DashboardResponse(BaseModel):
     period_from: date
     period_to: date

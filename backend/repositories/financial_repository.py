@@ -3,8 +3,9 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
-from .database import get_db_connection
-from .schemas import (
+from ..infrastructure.database import get_db_connection
+from ..services.ingestion_service import refresh_kpis_from_transactions
+from ..models.schemas import (
     AlertResponse,
     AlertSeverity,
     AlertStatus,
@@ -19,7 +20,7 @@ from .schemas import (
 )
 
 
-class InMemoryRepository:
+class PostgreSQLRepository:
     """Repositorio basado en PostgreSQL para la plataforma financiera."""
 
     def __init__(self) -> None:
@@ -259,6 +260,7 @@ class InMemoryRepository:
         period_to: Optional[date] = None,
         cost_center_id: Optional[int] = None,
     ) -> List[KpiResponse]:
+        refresh_kpis_from_transactions()
         return self._fetch_kpis(period_from, period_to, cost_center_id)
 
     def forecast(self, horizon_days: int) -> ForecastResponse:
@@ -458,4 +460,4 @@ class InMemoryRepository:
         return self._last_sync
 
 
-repository = InMemoryRepository()
+repository = PostgreSQLRepository()
