@@ -29,13 +29,16 @@ El punto de entrada es [`main.py`](main.py). La API expone documentacion OpenAPI
 - `POST /sync`: registro de una corrida de sincronizacion.
 - `POST /ingestion/files?source_type=erp`: carga automatizada de archivos `.xlsx`, `.csv` o `.pdf`.
 - `POST /ingestion/documents`: carga autenticada de documentos ERP PDF, CSV o Excel; conserva el texto/payload extraído en staging sin normalizarlo ni recalcular KPIs.
+- `POST /ingestion/budgets`: carga autenticada de presupuesto ERP CSV/Excel con periodo, monto presupuestado, cuenta y centro de costo.
 - `GET /health`: health check.
+
+El MVP requiere importar movimientos bancarios y presupuestos para calcular desviaciones. El forecast usa regresión lineal diaria, se habilita con al menos 180 días recientes de movimientos bancarios y reporta un intervalo predictivo del 80 % y MAE de backtest a 30 días. Sin datos suficientes, la API devuelve una serie vacía. Los movimientos netos bancarios no se presentan como saldo de caja porque aún no se captura el saldo inicial.
 
 La conexion PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /health`. La Fase 2 conserva el archivo recibido en `datos_temporales_erp` o `datos_temporales_banco`, normaliza cuentas, centros de costo y transacciones, registra filas rechazadas en `registros_sincronizacion_rechazados` y recalcula los KPIs desde `transacciones`. Si no hay transacciones cargadas, la aplicacion mantiene el seed demo como fallback de desarrollo. No se guardan credenciales en el codigo.
 
-### Carga automatizada de datos
+### Carga de datos MVP
 
-La carga batch no requiere captura manual:
+El MVP admite carga manual de archivos; todavía no conecta directamente con el ERP/banco ni programa ejecuciones diarias. Las credenciales, formato de exportación y horario del proveedor son necesarios para automatizar esa integración.
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\ingest_financial_files.py .\datos\erp.xlsx --source-type erp
@@ -47,6 +50,8 @@ Tambien puede usarse la API multipart:
 ```powershell
 curl.exe -X POST "http://localhost:8000/api/v1/ingestion/files?source_type=erp" -F "file=@.\datos\erp.xlsx"
 ```
+
+En la vista **Carga ERP**, selecciona ERP, Banco o Presupuesto. Para probar el MVP con los ejemplos del repositorio, carga primero [`datos/erp_datasheet_50_lineas.csv`](datos/erp_datasheet_50_lineas.csv) y después [`datos/presupuesto_template.csv`](datos/presupuesto_template.csv). El presupuesto debe incluir `periodo`, `monto_presupuestado`, `cuenta` y `centro_costo`.
 
 Los Excel/CSV deben incluir al menos `fecha` y `monto`. Se reconocen tambien `cuenta`, `nombre_cuenta`, `categoria`, `centro_costo`, `concepto`, `referencia` y `moneda`. Los PDF se procesan mediante texto extraible y requieren filas con fecha y monto legibles. Cada corrida crea un `sync_log`, conserva el payload original en staging y usa `source_type + source_reference` para evitar duplicados.
 
@@ -63,7 +68,11 @@ Antes de iniciar, edita `.env` con los datos reales de tu PostgreSQL:
 
 ```env
 CFO_DATABASE_URL=postgresql+psycopg2://USUARIO:CONTRASENA@HOST:5432/NOMBRE_BASE
+CFO_ENABLE_DEMO_DATA=false
+CFO_SECURE_SESSION_COOKIE=true
 ```
+
+Para desarrollo local por HTTP, usa `CFO_SECURE_SESSION_COOKIE=false`; en producción con HTTPS, actívalo.
 
 La API queda disponible en `http://localhost:8000` y su contrato interactivo en `http://localhost:8000/docs`. Si PostgreSQL no está levantado, FastAPI arranca igualmente y `/health` reporta `database: unavailable`.
 

@@ -53,6 +53,11 @@ class KpiResponse(BaseModel):
     change_pct: Optional[Decimal] = None
 
 
+class CostCenterResponse(BaseModel):
+    id: int
+    name: str
+
+
 class ForecastPointResponse(BaseModel):
     target_date: date
     predicted_value: Decimal

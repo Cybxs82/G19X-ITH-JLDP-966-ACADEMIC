@@ -8,6 +8,7 @@ const ACCEPTED_TYPES = ".pdf,.csv,.xlsx,.xlsm";
 
 export function ERPUploadView() {
   const [file, setFile] = useState<File | null>(null);
+  const [sourceType, setSourceType] = useState<"erp" | "banco" | "presupuesto">("erp");
   const [errorMessage, setErrorMessage] = useState("");
   const [result, setResult] = useState<ERPDocumentIngestion | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -27,7 +28,7 @@ export function ERPUploadView() {
 
     setIsUploading(true);
     try {
-      setResult(await uploadERPDocument(file));
+      setResult(await uploadERPDocument(file, sourceType));
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "No se pudo guardar el archivo.");
     } finally {
@@ -41,16 +42,32 @@ export function ERPUploadView() {
         <div>
         <p className="eyebrow">IMPORTACIÓN DE DATOS</p>
         <h1>Carga ERP</h1>
-        <p className="heading-copy">Importa documentos y guarda los valores extraídos en la base de datos.</p>
+        <p className="heading-copy">Consolida archivos ERP o bancarios y conserva los valores originales para auditoría.</p>
         </div>
       </div>
 
       <form className="erp-upload-form" onSubmit={handleSubmit}>
           <label className="erp-file-field">
-            <span>Documento ERP</span>
+            <span>Fuente de datos</span>
+            <select
+              value={sourceType}
+              onChange={(event) => {
+                setSourceType(event.target.value as "erp" | "banco" | "presupuesto");
+                setFile(null);
+                setResult(null);
+                setErrorMessage("");
+              }}
+            >
+              <option value="erp">ERP</option>
+              <option value="banco">Banco</option>
+              <option value="presupuesto">Presupuesto</option>
+            </select>
+          </label>
+          <label className="erp-file-field">
+            <span>Archivo financiero</span>
             <input
               type="file"
-              accept={ACCEPTED_TYPES}
+              accept={sourceType === "presupuesto" ? ".csv,.xlsx,.xlsm" : ACCEPTED_TYPES}
               required
               onChange={(event) => {
                 setFile(event.target.files?.[0] ?? null);
@@ -58,12 +75,12 @@ export function ERPUploadView() {
                 setResult(null);
               }}
             />
-            <small>PDF, CSV o Excel (.xlsx, .xlsm). Máximo 20 MB.</small>
+            <small>{sourceType === "presupuesto" ? "CSV o Excel con periodo, monto_presupuestado, cuenta y centro_costo." : "PDF, CSV o Excel (.xlsx, .xlsm)."} Máximo 20 MB.</small>
           </label>
           {errorMessage && <p className="auth-error" role="alert">{errorMessage}</p>}
           {result && (
             <p className="upload-success" role="status">
-              Archivo guardado. Se almacenaron {result.rows_ingested} {file?.name.toLowerCase().endsWith(".pdf") ? "páginas" : "filas"} sin normalizar.
+              Carga completada: {result.rows_ingested} {sourceType === "presupuesto" ? "presupuestos" : "movimientos"} guardados y {result.rows_rejected} rechazados. Los valores originales quedaron en staging.
             </p>
           )}
           <div className="erp-upload-actions">

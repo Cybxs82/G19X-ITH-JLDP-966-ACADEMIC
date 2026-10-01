@@ -3,12 +3,14 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
+from ..infrastructure.config import get_settings
 from ..infrastructure.database import get_db_connection
 from ..services.ingestion_service import refresh_kpis_from_transactions
 from ..models.schemas import (
     AlertResponse,
     AlertSeverity,
     AlertStatus,
+    CostCenterResponse,
     FeedbackCreate,
     FeedbackResponse,
     FeedbackType,
@@ -24,7 +26,7 @@ class PostgreSQLRepository:
     """Repositorio basado en PostgreSQL para la plataforma financiera."""
 
     def __init__(self) -> None:
-        self._last_sync = datetime.now(timezone.utc)
+        self._last_sync: Optional[datetime] = None
         self._ensure_seed_data()
 
     def _ensure_seed_data(self) -> None:
@@ -42,6 +44,9 @@ class PostgreSQLRepository:
                     ON CONFLICT (id) DO NOTHING
                     """
                 )
+                if not get_settings().enable_demo_data:
+                    conn.commit()
+                    return
                 cursor.execute(
                     "DELETE FROM valores_kpi WHERE id NOT IN (1, 2, 3, 4)"
                 )
@@ -295,28 +300,62 @@ class PostgreSQLRepository:
         period_to: Optional[date] = None,
         cost_center_id: Optional[int] = None,
     ) -> List[KpiResponse]:
-        refresh_kpis_from_transactions()
+        has_financial_data = refresh_kpis_from_transactions()
+        if not has_financial_data and not get_settings().enable_demo_data:
+            return []
         return self._fetch_kpis(period_from, period_to, cost_center_id)
 
-    def forecast(self, horizon_days: int) -> ForecastResponse:
+    def list_cost_centers(self) -> List[CostCenterResponse]:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT fr.id, fr.nombre_modelo, fr.ejecutado_en, fv.fecha_objetivo, fv.valor_predicho, fv.limite_inferior, fv.limite_superior
-                    FROM ejecuciones_pronostico fr
-                    JOIN valores_pronostico fv ON fv.ejecucion_pronostico_id = fr.id
-                    WHERE fv.fecha_objetivo <= %s
-                    ORDER BY fv.fecha_objetivo ASC
-                    LIMIT %s
-                    """,
-                    ((date.today() + timedelta(days=horizon_days)), horizon_days + 1),
-                )
+                cursor.execute("SELECT id, nombre FROM centros_costo ORDER BY nombre")
                 rows = cursor.fetchall()
+        return [CostCenterResponse(id=row[0], name=row[1]) for row in rows]
+
+    def forecast(self, horizon_days: int) -> ForecastResponse:
+        rows = []
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                demo_enabled = get_settings().enable_demo_data
+                has_recent_training_data = True
+                if not demo_enabled:
+                    cursor.execute(
+                        "SELECT MIN(fecha_transaccion), MAX(fecha_transaccion) FROM transacciones WHERE tipo_fuente = 'banco'::fuente_tipo"
+                    )
+                    first_day, last_day = cursor.fetchone()
+                    has_recent_training_data = (
+                        first_day is not None
+                        and last_day is not None
+                        and (last_day - first_day).days + 1 >= 180
+                        and last_day >= date.today() - timedelta(days=1)
+                    )
+
+                if has_recent_training_data:
+                    cursor.execute(
+                        """
+                        SELECT fr.id, fr.nombre_modelo, fr.ejecutado_en, fv.fecha_objetivo, fv.valor_predicho, fv.limite_inferior, fv.limite_superior
+                        FROM ejecuciones_pronostico fr
+                        JOIN valores_pronostico fv ON fv.ejecucion_pronostico_id = fr.id
+                        WHERE fv.fecha_objetivo <= %s
+                          AND (%s OR fr.nombre_modelo = 'regresion_lineal_diaria_v1')
+                          AND (%s OR fr.id = (
+                              SELECT MAX(id) FROM ejecuciones_pronostico WHERE nombre_modelo = 'regresion_lineal_diaria_v1'
+                          ))
+                        ORDER BY fr.ejecutado_en DESC, fv.fecha_objetivo ASC
+                        LIMIT %s
+                        """,
+                        (date.today() + timedelta(days=horizon_days), demo_enabled, demo_enabled, horizon_days + 1),
+                    )
+                    rows = cursor.fetchall()
 
         if not rows:
-            self._ensure_seed_data()
-            return self.forecast(horizon_days)
+            return ForecastResponse(
+                forecast_run_id=0,
+                model_name="sin_datos",
+                generated_at=datetime.now(timezone.utc),
+                horizon_days=horizon_days,
+                values=[],
+            )
 
         first_row = rows[0]
         values = [
@@ -350,9 +389,15 @@ class PostgreSQLRepository:
                                         WHERE (%s::text IS NULL OR estado = %s)
                                             AND (%s::text IS NULL OR severidad = %s)
                                             AND (%s IS NULL OR centro_costo_id = %s)
+                                            AND (%s OR EXISTS (
+                                                SELECT 1 FROM presupuestos p
+                                                WHERE p.cuenta_id = alertas.cuenta_id
+                                                  AND p.centro_costo_id IS NOT DISTINCT FROM alertas.centro_costo_id
+                                                  AND p.periodo = alertas.periodo
+                                            ))
                                         ORDER BY desviacion_pct DESC, detectado_en DESC
                 """
-                cursor.execute(query, (status.value if status else None, status.value if status else None, severity.value if severity else None, severity.value if severity else None, cost_center_id, cost_center_id))
+                cursor.execute(query, (status.value if status else None, status.value if status else None, severity.value if severity else None, severity.value if severity else None, cost_center_id, cost_center_id, get_settings().enable_demo_data))
                 rows = cursor.fetchall()
 
         return [
@@ -380,7 +425,8 @@ class PostgreSQLRepository:
         alert_id: int,
         status: AlertStatus,
         comment: Optional[str],
-        attended_by: Optional[UUID],
+        attended_by: UUID,
+        responsible_id: Optional[UUID] = None,
     ) -> Optional[AlertResponse]:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
@@ -389,13 +435,13 @@ class PostgreSQLRepository:
                     UPDATE alertas
                     SET estado = %s,
                         comentario = %s,
-                        responsable_id = %s,
+                        responsable_id = COALESCE(%s, responsable_id),
                         atendido_por = %s,
                         atendido_en = %s
                     WHERE id = %s
                     RETURNING id, cuenta_id, centro_costo_id, periodo, monto_presupuestado, monto_real, desviacion_pct, severidad, estado, detectado_en, responsable_id, atendido_por, atendido_en, comentario
                     """,
-                    (status.value, comment, str(attended_by) if attended_by else None, str(attended_by) if attended_by else None, datetime.now(timezone.utc) if status in {AlertStatus.cerrada, AlertStatus.falsa} else None, alert_id),
+                    (status.value, comment, str(responsible_id) if responsible_id else None, str(attended_by), datetime.now(timezone.utc) if status in {AlertStatus.en_revision, AlertStatus.cerrada, AlertStatus.falsa} else None, alert_id),
                 )
                 row = cursor.fetchone()
                 conn.commit()
@@ -421,6 +467,8 @@ class PostgreSQLRepository:
         )
 
     def list_recommendations(self, period: Optional[date] = None) -> List[RecommendationResponse]:
+        if not get_settings().enable_demo_data:
+            return []
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 query = """
@@ -500,12 +548,20 @@ class PostgreSQLRepository:
         )
 
     @property
-    def last_sync(self) -> datetime:
+    def last_sync(self) -> Optional[datetime]:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute("SELECT MAX(finalizado_en) FROM registros_sincronizacion")
+                cursor.execute(
+                    """
+                    SELECT MAX(s.finalizado_en)
+                    FROM registros_sincronizacion s
+                    JOIN fuentes_datos f ON f.id = s.fuente_datos_id
+                    WHERE (%s OR f.nombre <> 'ERP demo')
+                    """,
+                    (get_settings().enable_demo_data,),
+                )
                 row = cursor.fetchone()
-                self._last_sync = row[0] or datetime.now(timezone.utc)
+                self._last_sync = row[0]
         return self._last_sync
 
 

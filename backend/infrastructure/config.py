@@ -21,6 +21,8 @@ class Settings:
     database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/cfo_platform"
     database_connect_timeout: int = 3
     allowed_origins: List[str] = ["http://localhost:3000"]
+    enable_demo_data: bool = False
+    secure_session_cookie: bool = False
 
     def __init__(self) -> None:
         self.app_name = os.getenv("CFO_APP_NAME", self.app_name)
@@ -28,6 +30,9 @@ class Settings:
         self.environment = os.getenv("CFO_ENVIRONMENT", self.environment)
         self.database_url = os.getenv("CFO_DATABASE_URL", self.database_url)
         self.database_connect_timeout = int(os.getenv("CFO_DATABASE_CONNECT_TIMEOUT", str(self.database_connect_timeout)))
+        self.enable_demo_data = os.getenv("CFO_ENABLE_DEMO_DATA", "false").strip().lower() == "true"
+        secure_default = "false" if self.environment == "development" else "true"
+        self.secure_session_cookie = os.getenv("CFO_SECURE_SESSION_COOKIE", secure_default).strip().lower() == "true"
         origins = os.getenv("CFO_ALLOWED_ORIGINS")
         if origins:
             self.allowed_origins = [origin.strip() for origin in origins.split(",") if origin.strip()]

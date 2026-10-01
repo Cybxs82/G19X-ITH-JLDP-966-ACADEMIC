@@ -2,9 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getFinancialDashboard } from "@/controllers/dashboard-controller";
+import { getCostCenters, getFinancialDashboard, updateAlertStatus } from "@/controllers/dashboard-controller";
 import { getCurrentUser, login, logout, register, type AuthUser } from "@/controllers/auth-controller";
-import { financialDashboard, type FinancialDashboard } from "@/models/financial-model";
+import { financialDashboard, type CostCenter, type DashboardFilters, type FinancialDashboard } from "@/models/financial-model";
 import { DashboardView } from "@/views/dashboard-view";
 
 type AuthState = "checking" | "authenticated" | "anonymous";
@@ -15,6 +15,8 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [dashboard, setDashboard] = useState<FinancialDashboard>(financialDashboard);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [filters, setFilters] = useState<DashboardFilters>({ periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 });
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,8 +34,13 @@ export default function Home() {
 
   useEffect(() => {
     if (authState !== "authenticated") return;
-    void getFinancialDashboard().then(setDashboard);
+    void getCostCenters().then(setCostCenters).catch(() => setCostCenters([]));
   }, [authState]);
+
+  useEffect(() => {
+    if (authState !== "authenticated") return;
+    void getFinancialDashboard(filters).then(setDashboard);
+  }, [authState, filters]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,12 +69,17 @@ export default function Home() {
     setAuthMode("login");
   }
 
+  async function handleAlertUpdate(alertId: number, status: "nueva" | "en_revision" | "cerrada" | "falsa", comment: string) {
+    await updateAlertStatus(alertId, status, comment);
+    setDashboard(await getFinancialDashboard(filters));
+  }
+
   if (authState === "checking") {
     return <main className="auth-loading">Comprobando sesión...</main>;
   }
 
   if (authState === "authenticated" && user) {
-    return <DashboardView dashboard={dashboard} user={user} onLogout={handleLogout} onEditProfile={() => router.push("/profile")} onOpenDashboard={() => router.push("/")} onOpenIngestion={() => router.push("/ingestion")} />;
+    return <DashboardView dashboard={dashboard} user={user} filters={filters} costCenters={costCenters} onFiltersChange={setFilters} onUpdateAlert={handleAlertUpdate} onLogout={handleLogout} onEditProfile={() => router.push("/profile")} onOpenDashboard={() => router.push("/")} onOpenIngestion={() => router.push("/ingestion")} />;
   }
 
   return (

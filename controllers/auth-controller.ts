@@ -110,11 +110,12 @@ export async function updateProfile(payload: {
   return ((await response.json()) as AuthResponse).user;
 }
 
-export async function uploadERPDocument(file: File): Promise<ERPDocumentIngestion> {
+export async function uploadERPDocument(file: File, sourceType: "erp" | "banco" | "presupuesto"): Promise<ERPDocumentIngestion> {
   const formData = new FormData();
   formData.append("file", file);
   try {
-    const response = await fetch(`${apiUrl}/ingestion/documents`, {
+    const endpoint = sourceType === "presupuesto" ? "/ingestion/budgets" : `/ingestion/files?source_type=${sourceType}`;
+    const response = await fetch(`${apiUrl}${endpoint}`, {
       method: "POST",
       credentials: "include",
       body: formData,

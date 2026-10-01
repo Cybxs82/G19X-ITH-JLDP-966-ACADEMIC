@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { AuthUser } from "@/controllers/auth-controller";
-import type { FinancialDashboard } from "@/models/financial-model";
+import type { Alert, CostCenter, DashboardFilters, FinancialDashboard } from "@/models/financial-model";
 
 type DashboardViewProps = {
   dashboard: FinancialDashboard;
@@ -12,12 +12,15 @@ type DashboardViewProps = {
   onEditProfile: () => void;
   onOpenDashboard: () => void;
   onOpenIngestion: () => void;
+  onUpdateAlert?: (alertId: number, status: Alert["status"], comment: string) => Promise<void>;
+  filters?: DashboardFilters;
+  costCenters?: CostCenter[];
+  onFiltersChange?: (filters: DashboardFilters) => void;
   activeSection?: "Resumen" | "Carga ERP";
   children?: ReactNode;
 };
 
-export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, activeSection = "Resumen", children }: DashboardViewProps) {
-  const [activeArea, setActiveArea] = useState("Todas");
+export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, onUpdateAlert, filters = { periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 }, costCenters = [], onFiltersChange, activeSection = "Resumen", children }: DashboardViewProps) {
   const [activeNav, setActiveNav] = useState<string>(activeSection);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -26,6 +29,9 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpen
   );
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<"sidebar" | "header" | null>(null);
   const [logoutError, setLogoutError] = useState("");
+  const [alertError, setAlertError] = useState("");
+  const [alertComments, setAlertComments] = useState<Record<number, string>>({});
+  const [updatingAlertId, setUpdatingAlertId] = useState<number | null>(null);
 
   async function handleLogout() {
     setLogoutError("");
@@ -40,13 +46,26 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpen
     setProfileMenuAnchor((current) => current === anchor ? null : anchor);
   }
 
+  async function updateAlert(alertId: number, status: Alert["status"]) {
+    if (!onUpdateAlert) return;
+    setAlertError("");
+    setUpdatingAlertId(alertId);
+    try {
+      await onUpdateAlert(alertId, status, alertComments[alertId] ?? "");
+      setAlertComments((current) => ({ ...current, [alertId]: "" }));
+    } catch (error) {
+      setAlertError(error instanceof Error ? error.message : "No se pudo actualizar la alerta.");
+    } finally {
+      setUpdatingAlertId(null);
+    }
+  }
+
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("cfo-theme", theme);
   }, [theme]);
 
-  const areas = ["Todas", ...new Set(dashboard.alerts.map((alert) => alert.area))];
-  const visibleAlerts = dashboard.alerts.filter((alert) => activeArea === "Todas" || alert.area === activeArea);
+  const visibleAlerts = dashboard.alerts;
 
   return (
     <main className="app-shell">
@@ -104,7 +123,7 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpen
 
               <div className="settings-section">
                 <span>Fase 2 · Integración</span>
-                <small>ERP + Banco · sincronización diaria activa</small>
+                <small>ERP + Banco · cargas manuales</small>
               </div>
             </div>
           )}
@@ -160,11 +179,12 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpen
 
         <div className="page-content">
           {logoutError && <p className="auth-error" role="alert">{logoutError}</p>}
+          {alertError && <p className="auth-error" role="alert">{alertError}</p>}
           {activeSection === "Carga ERP" ? children : (
           <>
           <div className="page-heading">
             <div>
-              <p className="eyebrow">LUNES, 21 DE SEPTIEMBRE DE 2026</p>
+              <p className="eyebrow">PERIODO FINANCIERO</p>
               <h1>Resumen financiero</h1>
               <p className="heading-copy">Una lectura clara de la salud financiera de tu empresa.</p>
             </div>
@@ -172,44 +192,22 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpen
           </div>
 
           <div className="filter-row">
-            <div className="period-selector">
-              <span className="calendar-icon">□</span>
-              <span>{dashboard.period}</span>
-              <span className="chevron">⌄</span>
-            </div>
-            <div className="area-filters">
-              {areas.map((area) => (
-                <button key={area} className={activeArea === area ? "filter active" : "filter"} onClick={() => setActiveArea(area)}>
-                  {area}
-                </button>
-              ))}
-            </div>
+            <label className="dashboard-filter"><span>Desde</span><input type="date" max={filters.periodTo || undefined} value={filters.periodFrom} onChange={(event) => onFiltersChange?.({ ...filters, periodFrom: event.target.value })} /></label>
+            <label className="dashboard-filter"><span>Hasta</span><input type="date" min={filters.periodFrom || undefined} value={filters.periodTo} onChange={(event) => onFiltersChange?.({ ...filters, periodTo: event.target.value })} /></label>
+            <label className="dashboard-filter"><span>Área</span><select value={filters.costCenterId} onChange={(event) => onFiltersChange?.({ ...filters, costCenterId: event.target.value })}><option value="">Todas</option>{costCenters.map((center) => <option key={center.id} value={center.id}>{center.name}</option>)}</select></label>
+            <label className="dashboard-filter"><span>Forecast</span><select value={filters.horizonDays} onChange={(event) => onFiltersChange?.({ ...filters, horizonDays: Number(event.target.value) as DashboardFilters["horizonDays"] })}><option value={30}>30 días</option><option value={60}>60 días</option><option value={90}>90 días</option></select></label>
           </div>
 
           <section className="integration-banner" aria-label="Integración de datos">
             <div>
-              <p className="eyebrow">FASE 2 · INTEGRACIÓN DE DATOS</p>
-              <h2>ERP + Banco sincronizados</h2>
+              <p className="eyebrow">ÚLTIMA ACTUALIZACIÓN</p>
+              <h2>{dashboard.lastSync}</h2>
             </div>
-
-            <div className="integration-metrics">
-              <div>
-                <strong>96%</strong>
-                <span>cargas completadas</span>
-              </div>
-              <div>
-                <strong>2.4h</strong>
-                <span>tiempo de actualización</span>
-              </div>
-              <div>
-                <strong>1,23%</strong>
-                <span>errores de validación</span>
-              </div>
-            </div>
+            <p className="heading-copy">ERP y banco · carga manual para MVP</p>
           </section>
 
           <section className="kpi-grid" aria-label="Indicadores clave">
-            {dashboard.kpis.map((kpi) => (
+            {dashboard.kpis.length === 0 ? <p className="data-empty">Carga movimientos para calcular los indicadores.</p> : dashboard.kpis.map((kpi) => (
               <article className={`kpi-card ${kpi.tone}`} key={kpi.label}>
                 <div className="kpi-top">
                   <span>{kpi.label}</span>
@@ -240,13 +238,14 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpen
                 </div>
               </div>
 
+              {dashboard.forecast.length === 0 ? (
+                <p className="data-empty">Aún no hay histórico suficiente para calcular el forecast.</p>
+              ) : (
+              <>
               <div className="forecast-summary">
-                <strong>$8.1M</strong>
-                <span>
-                  saldo esperado a 90 días <b>↗ 22.4%</b>
-                </span>
+                <strong>{dashboard.forecast.length} días</strong>
+                <span>de proyección calculada</span>
               </div>
-
               <div className="chart">
                 <div className="chart-y">
                   <span>$10M</span>
@@ -279,36 +278,10 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpen
               <div className="chart-note">
                 <span className="note-mark">i</span> El intervalo de confianza se amplía a medida que avanza la proyección.
               </div>
+              </>
+              )}
             </section>
 
-            <section className="panel ai-panel">
-              <div className="ai-heading">
-                <div className="ai-spark">✦</div>
-                <div>
-                  <p className="eyebrow">ANÁLISIS INTELIGENTE</p>
-                  <h2>Lectura ejecutiva</h2>
-                </div>
-                <span className="ai-badge">IA</span>
-              </div>
-
-              <p className="ai-lead">
-                El negocio mantiene una posición saludable, con generación de caja al alza y margen operativo por encima del plan.
-              </p>
-
-              <div className="ai-divider" />
-
-              <div className="recommendation-list">
-                {dashboard.recommendations.map((recommendation) => (
-                  <div className="recommendation" key={recommendation.title}>
-                    <div className={`priority ${recommendation.priority.toLowerCase()}`}>{recommendation.priority}</div>
-                    <strong>{recommendation.title}</strong>
-                    <p>{recommendation.detail}</p>
-                  </div>
-                ))}
-              </div>
-
-              <button className="text-button">Ver análisis completo <span>→</span></button>
-            </section>
           </div>
 
           <section className="panel alerts-panel">
@@ -325,7 +298,7 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpen
             </div>
 
             <div className="alerts-list">
-              {visibleAlerts.slice(0, showAllAlerts ? visibleAlerts.length : 3).map((alert) => (
+              {visibleAlerts.length === 0 ? <p className="data-empty">No hay alertas para los filtros seleccionados.</p> : visibleAlerts.slice(0, showAllAlerts ? visibleAlerts.length : 3).map((alert) => (
                 <div className="alert-row" key={alert.id}>
                   <div className={`alert-icon ${alert.severity}`} />
                   <div className="alert-copy">
@@ -336,9 +309,24 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpen
                     <strong>{alert.amount}</strong>
                     <span>sobre presupuesto</span>
                   </div>
-                  <button className="row-action" aria-label={`Abrir alerta de ${alert.title}`}>
-                    →
-                  </button>
+                  {onUpdateAlert && user.role !== "cfo" && (
+                    <details className="alert-management">
+                      <summary>Gestionar</summary>
+                      <label>
+                        <span>Comentario</span>
+                        <textarea
+                          value={alertComments[alert.id] ?? ""}
+                          maxLength={2000}
+                          onChange={(event) => setAlertComments((current) => ({ ...current, [alert.id]: event.target.value }))}
+                        />
+                      </label>
+                      <div className="alert-management-actions">
+                        <button type="button" disabled={updatingAlertId === alert.id} onClick={() => void updateAlert(alert.id, "en_revision")}>Revisar</button>
+                        <button type="button" disabled={updatingAlertId === alert.id} onClick={() => void updateAlert(alert.id, "cerrada")}>Cerrar</button>
+                        <button type="button" disabled={updatingAlertId === alert.id} onClick={() => void updateAlert(alert.id, "falsa")}>Marcar falsa</button>
+                      </div>
+                    </details>
+                  )}
                 </div>
               ))}
             </div>
