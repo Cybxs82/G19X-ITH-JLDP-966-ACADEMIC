@@ -4,6 +4,8 @@ export type AuthUser = {
   full_name: string;
   role: "cfo" | "analista" | "administrador";
   is_active: boolean;
+  username?: string;
+  phone?: string;
 };
 
 type AuthResponse = { user: AuthUser };
@@ -19,8 +21,12 @@ function getNetworkError(error: unknown): Error {
 
 async function readError(response: Response): Promise<string> {
   try {
-    const body = (await response.json()) as { detail?: string };
-    return body.detail ?? "No se pudo completar la operación";
+    const body = (await response.json()) as { detail?: string | { msg?: string }[] };
+    if (typeof body.detail === "string") return body.detail;
+    if (Array.isArray(body.detail)) {
+      return body.detail.map((issue) => issue.msg).filter(Boolean).join(". ") || "Revisa los datos ingresados";
+    }
+    return "No se pudo completar la operación";
   } catch {
     return "No se pudo completar la operación";
   }
@@ -68,9 +74,31 @@ export async function register(email: string, fullName: string, password: string
 }
 
 export async function logout(): Promise<void> {
-  const response = await fetch(`${apiUrl}/auth/logout`, {
-    method: "POST",
+  try {
+    const response = await fetch(`${apiUrl}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error(await readError(response));
+  } catch (error) {
+    throw getNetworkError(error);
+  }
+}
+
+export async function updateProfile(payload: {
+  email: string;
+  full_name: string;
+  username?: string;
+  phone?: string;
+  current_password?: string;
+  new_password?: string;
+}): Promise<AuthUser> {
+  const response = await fetch(`${apiUrl}/auth/profile`, {
+    method: "PATCH",
     credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
   if (!response.ok) throw new Error(await readError(response));
+  return ((await response.json()) as AuthResponse).user;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getFinancialDashboard } from "@/controllers/dashboard-controller";
 import { getCurrentUser, login, logout, register, type AuthUser } from "@/controllers/auth-controller";
 import { financialDashboard, type FinancialDashboard } from "@/models/financial-model";
@@ -9,6 +10,7 @@ import { DashboardView } from "@/views/dashboard-view";
 type AuthState = "checking" | "authenticated" | "anonymous";
 
 export default function Home() {
+  const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>("checking");
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -65,7 +67,7 @@ export default function Home() {
   }
 
   if (authState === "authenticated" && user) {
-    return <DashboardView dashboard={dashboard} user={user} onLogout={handleLogout} />;
+    return <DashboardView dashboard={dashboard} user={user} onLogout={handleLogout} onEditProfile={() => router.push("/profile")} />;
   }
 
   return (

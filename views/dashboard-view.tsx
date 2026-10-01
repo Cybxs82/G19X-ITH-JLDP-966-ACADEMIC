@@ -4,19 +4,31 @@ import { useEffect, useState } from "react";
 import type { AuthUser } from "@/controllers/auth-controller";
 import type { FinancialDashboard } from "@/models/financial-model";
 
-type DashboardViewProps = { dashboard: FinancialDashboard; user: AuthUser; onLogout: () => Promise<void> };
+type DashboardViewProps = { dashboard: FinancialDashboard; user: AuthUser; onLogout: () => Promise<void>; onEditProfile: () => void };
 
-export function DashboardView({ dashboard, user, onLogout }: DashboardViewProps) {
+export function DashboardView({ dashboard, user, onLogout, onEditProfile }: DashboardViewProps) {
   const [activeArea, setActiveArea] = useState("Todas");
   const [activeNav, setActiveNav] = useState("Resumen");
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    typeof window === "undefined" ? "light" : (localStorage.getItem("cfo-theme") as "light" | "dark") || "light",
+  );
+  const [profileMenuAnchor, setProfileMenuAnchor] = useState<"sidebar" | "header" | null>(null);
+  const [logoutError, setLogoutError] = useState("");
 
-  useEffect(() => {
-    const savedTheme = (localStorage.getItem("cfo-theme") as "light" | "dark") || "light";
-    setTheme(savedTheme);
-  }, []);
+  async function handleLogout() {
+    setLogoutError("");
+    try {
+      await onLogout();
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : "No se pudo cerrar la sesión.");
+    }
+  }
+
+  function openProfileMenu(anchor: "sidebar" | "header") {
+    setProfileMenuAnchor((current) => current === anchor ? null : anchor);
+  }
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -85,9 +97,15 @@ export function DashboardView({ dashboard, user, onLogout }: DashboardViewProps)
               <strong>{user.full_name}</strong>
               <small>{user.role}</small>
             </div>
-            <button type="button" className="logout-button" onClick={() => void onLogout()}>
-              Salir
+            <button type="button" className="logout-button" onClick={() => openProfileMenu("sidebar")} aria-label="Abrir menú de perfil" aria-expanded={profileMenuAnchor === "sidebar"} aria-haspopup="menu">
+              ⋯
             </button>
+            {profileMenuAnchor === "sidebar" && (
+              <div className="profile-menu profile-menu-sidebar" role="menu">
+                <button type="button" role="menuitem" onClick={() => { setProfileMenuAnchor(null); onEditProfile(); }}>Editar perfil</button>
+                <button type="button" role="menuitem" onClick={() => void handleLogout()}>Cerrar sesión</button>
+              </div>
+            )}
           </div>
         </div>
       </aside>
@@ -110,11 +128,20 @@ export function DashboardView({ dashboard, user, onLogout }: DashboardViewProps)
             >
               {theme === "dark" ? "☀" : "☾"}
             </button>
-            <div className="mini-avatar">{user.full_name.slice(0, 2).toUpperCase()}</div>
+            <button type="button" className="mini-avatar profile-trigger" aria-label="Abrir menú de perfil" aria-expanded={profileMenuAnchor === "header"} aria-haspopup="menu" onClick={() => openProfileMenu("header")}>
+              {user.full_name.slice(0, 2).toUpperCase()}
+            </button>
+            {profileMenuAnchor === "header" && (
+              <div className="profile-menu profile-menu-header" role="menu">
+                <button type="button" role="menuitem" onClick={() => { setProfileMenuAnchor(null); onEditProfile(); }}>Editar perfil</button>
+                <button type="button" role="menuitem" onClick={() => void handleLogout()}>Cerrar sesión</button>
+              </div>
+            )}
           </div>
         </header>
 
         <div className="page-content">
+          {logoutError && <p className="auth-error" role="alert">{logoutError}</p>}
           <div className="page-heading">
             <div>
               <p className="eyebrow">LUNES, 21 DE SEPTIEMBRE DE 2026</p>

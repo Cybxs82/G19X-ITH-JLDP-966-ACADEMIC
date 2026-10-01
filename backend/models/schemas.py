@@ -1,10 +1,11 @@
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
+import re
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class UserRole(str, Enum):
@@ -154,8 +155,35 @@ class AuthUserResponse(BaseModel):
     id: UUID
     email: str
     full_name: str
+    username: Optional[str] = None
+    phone: Optional[str] = None
     role: UserRole
     is_active: bool
+
+
+class ProfileUpdateRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=255)
+    full_name: str = Field(min_length=2, max_length=255)
+    username: Optional[str] = Field(default=None, min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_.-]+$")
+    phone: Optional[str] = Field(default=None, max_length=20, pattern=r"^\+?[0-9 ()-]{7,20}$")
+    current_password: Optional[str] = Field(default=None, min_length=8, max_length=128)
+    new_password: Optional[str] = Field(default=None, min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        normalized = value.strip()
+        if not re.fullmatch(r"[^@\s]+@[^@\s.]+(?:\.[^@\s.]+)+", normalized):
+            raise ValueError("Ingresa un correo electrónico válido")
+        return normalized
+
+    @field_validator("full_name")
+    @classmethod
+    def validate_full_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 2:
+            raise ValueError("El nombre completo debe tener al menos 2 caracteres")
+        return normalized
 
 
 class AuthResponse(BaseModel):

@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, Response, UploadFile
 
@@ -10,6 +11,7 @@ from ..models.schemas import (
     AlertUpdate,
     AuthResponse,
     AuthUserResponse,
+    ProfileUpdateRequest,
     DashboardResponse,
     FeedbackCreate,
     FeedbackResponse,
@@ -24,7 +26,7 @@ from ..models.schemas import (
 )
 from ..repositories.financial_repository import PostgreSQLRepository
 from ..services.ingestion_service import ingest_file
-from ..services.auth_service import SESSION_COOKIE, authenticate_user, get_session_user, register_user, revoke_session
+from ..services.auth_service import SESSION_COOKIE, authenticate_user, get_session_user, register_user, revoke_session, update_profile
 
 
 def create_router(repository: PostgreSQLRepository) -> APIRouter:
@@ -67,10 +69,30 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
             raise HTTPException(status_code=401, detail="Sesión no iniciada")
         return AuthResponse(user=AuthUserResponse(**user))
 
+    @router.patch("/auth/profile", response_model=AuthResponse)
+    def profile(payload: ProfileUpdateRequest, request: Request) -> AuthResponse:
+        user = get_session_user(request.cookies.get(SESSION_COOKIE))
+        if user is None:
+            raise HTTPException(status_code=401, detail="Sesión no iniciada")
+        try:
+            updated = update_profile(
+                UUID(str(user["id"])),
+                payload.email,
+                payload.full_name,
+                payload.username,
+                payload.phone,
+                payload.current_password,
+                payload.new_password,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+        return AuthResponse(user=AuthUserResponse(**updated))
+
     @router.post("/auth/logout", status_code=204)
     def logout(request: Request, response: Response) -> Response:
         revoke_session(request.cookies.get(SESSION_COOKIE))
         response.delete_cookie(SESSION_COOKIE, path="/")
+        response.status_code = 204
         return response
 
     @router.get("/kpis", response_model=List[KpiResponse])

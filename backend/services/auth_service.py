@@ -42,8 +42,10 @@ def _user_payload(row: Any) -> Dict[str, Any]:
         "id": row[0],
         "email": row[1],
         "full_name": row[2],
-        "role": row[3],
-        "is_active": row[4],
+        "username": row[3],
+        "phone": row[4],
+        "role": row[5],
+        "is_active": row[6],
     }
 
 
@@ -64,7 +66,7 @@ def register_user(email: str, full_name: str, password: str, role: str = "analis
                 """
                 INSERT INTO usuarios (correo, nombre_completo, rol, esta_activo, correo_verificado)
                 VALUES (%s, %s, %s::rol_usuario, TRUE, FALSE)
-                RETURNING id, correo, nombre_completo, rol, esta_activo
+                RETURNING id, correo, nombre_completo, nombre_usuario, telefono, rol, esta_activo
                 """,
                 (normalized_email, full_name.strip(), role),
             )
@@ -85,7 +87,7 @@ def authenticate_user(email: str, password: str, user_agent: Optional[str], ip_a
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT u.id, u.correo, u.nombre_completo, u.rol, u.esta_activo,
+                SELECT u.id, u.correo, u.nombre_completo, u.nombre_usuario, u.telefono, u.rol, u.esta_activo,
                        c.hash_contrasena, c.intentos_fallidos_inicio_sesion, c.bloqueado_hasta
                 FROM usuarios u
                 JOIN credenciales_usuario c ON c.usuario_id = u.id
@@ -98,13 +100,13 @@ def authenticate_user(email: str, password: str, user_agent: Optional[str], ip_a
                 _audit(cursor, None, "inicio_sesion_fallido", {"correo": normalized_email})
                 connection.commit()
                 raise ValueError("Correo o contraseña incorrectos")
-            if not row[4]:
+            if not row[6]:
                 raise ValueError("La cuenta está desactivada")
-            if row[7] is not None and row[7] > now:
+            if row[9] is not None and row[9] > now:
                 raise ValueError("La cuenta está temporalmente bloqueada")
 
-            if not bcrypt.checkpw(password.encode("utf-8"), row[5].encode("utf-8")):
-                attempts = row[6] + 1
+            if not bcrypt.checkpw(password.encode("utf-8"), row[7].encode("utf-8")):
+                attempts = row[8] + 1
                 locked_until = now + timedelta(minutes=15) if attempts >= 5 else None
                 cursor.execute(
                     """
@@ -151,7 +153,7 @@ def get_session_user(token: Optional[str]) -> Optional[Dict[str, Any]]:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT u.id, u.correo, u.nombre_completo, u.rol, u.esta_activo
+                SELECT u.id, u.correo, u.nombre_completo, u.nombre_usuario, u.telefono, u.rol, u.esta_activo
                 FROM sesiones_autenticacion s
                 JOIN usuarios u ON u.id = s.usuario_id
                 WHERE s.hash_token = %s
@@ -170,6 +172,43 @@ def get_session_user(token: Optional[str]) -> Optional[Dict[str, Any]]:
             )
             connection.commit()
             return _user_payload(row)
+
+
+def update_profile(user_id: UUID, email: str, full_name: str, username: Optional[str], phone: Optional[str], current_password: Optional[str], new_password: Optional[str]) -> Dict[str, Any]:
+    normalized_email = email.strip().lower()
+    with get_db_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT u.id, u.correo, u.nombre_completo, u.nombre_usuario, u.telefono, u.rol, u.esta_activo, c.hash_contrasena
+                FROM usuarios u JOIN credenciales_usuario c ON c.usuario_id = u.id
+                WHERE u.id = %s
+                """,
+                (str(user_id),),
+            )
+            row = cursor.fetchone()
+            if row is None or not row[6]:
+                raise ValueError("La cuenta no está disponible")
+            cursor.execute("SELECT id FROM usuarios WHERE lower(correo) = lower(%s) AND id <> %s", (normalized_email, str(user_id)))
+            if cursor.fetchone() is not None:
+                raise ValueError("Ya existe una cuenta con ese correo")
+            if username:
+                cursor.execute("SELECT id FROM usuarios WHERE lower(nombre_usuario) = lower(%s) AND id <> %s", (username.strip(), str(user_id)))
+                if cursor.fetchone() is not None:
+                    raise ValueError("Ese nombre de usuario ya está ocupado")
+            sensitive_change = normalized_email != row[1] or new_password is not None
+            if sensitive_change and (not current_password or not bcrypt.checkpw(current_password.encode("utf-8"), row[7].encode("utf-8"))):
+                raise ValueError("La contraseña actual es necesaria para cambiar datos sensibles")
+            cursor.execute(
+                "UPDATE usuarios SET correo = %s, nombre_completo = %s, nombre_usuario = %s, telefono = %s WHERE id = %s RETURNING id, correo, nombre_completo, nombre_usuario, telefono, rol, esta_activo",
+                (normalized_email, full_name.strip(), username.strip() if username else None, phone.strip() if phone else None, str(user_id)),
+            )
+            updated = cursor.fetchone()
+            if new_password:
+                cursor.execute("UPDATE credenciales_usuario SET hash_contrasena = %s, contrasena_cambiada_en = now() WHERE usuario_id = %s", (bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8"), str(user_id)))
+            _audit(cursor, user_id, "actualizar_perfil", {"correo": normalized_email, "cambio_contrasena": new_password is not None})
+            connection.commit()
+    return _user_payload(updated)
 
 
 def revoke_session(token: Optional[str]) -> None:
