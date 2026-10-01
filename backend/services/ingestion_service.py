@@ -8,7 +8,7 @@ import csv
 import io
 import json
 import re
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -135,14 +135,37 @@ def extract_raw_rows(file_name: str, content: bytes) -> List[Dict[str, Any]]:
     return raw_rows
 
 
+def extract_document_values(file_name: str, content: bytes) -> List[Dict[str, Any]]:
+    suffix = Path(file_name).suffix.lower()
+    if suffix == ".pdf":
+        from pypdf import PdfReader
+
+        pages = [
+            {"page_number": page_number, "text": page.extract_text() or ""}
+            for page_number, page in enumerate(PdfReader(io.BytesIO(content)).pages, start=1)
+        ]
+        if not any(page["text"].strip() for page in pages):
+            raise ValueError("El PDF no contiene texto extraíble; los PDF escaneados aún no se pueden leer")
+        return pages
+    if suffix not in (".xlsx", ".xlsm", ".csv"):
+        raise ValueError("Formato no soportado. Usa PDF, CSV o Excel (.xlsx, .xlsm)")
+
+    rows = extract_raw_rows(file_name, content)
+    if not rows:
+        raise ValueError("El archivo no contiene valores para guardar")
+    return [{"row_number": row_number, "values": row} for row_number, row in enumerate(rows, start=2)]
+
+
 def extract_rows(file_name: str, content: bytes) -> List[Dict[str, Any]]:
     return [_canonical_row(row, index) for index, row in enumerate(extract_raw_rows(file_name, content), start=2)]
 
 
 def _json_value(value: Any) -> Any:
-    if isinstance(value, (date, datetime)):
+    if isinstance(value, (date, datetime, time)):
         return value.isoformat()
     if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, timedelta):
         return str(value)
     return value
 
@@ -309,5 +332,37 @@ def ingest_file(file_name: str, content: bytes, source_type: str = "erp") -> Dic
         "data_source_id": data_source_id,
         "rows_ingested": len(rows),
         "rows_rejected": len(rejected_rows),
+        "status": "exitoso",
+    }
+
+
+def ingest_erp_document(file_name: str, content: bytes) -> Dict[str, Any]:
+    document_values = extract_document_values(file_name, content)
+    file_name = Path(file_name).name
+    started = datetime.now(timezone.utc)
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            data_source_id = _source_id(cursor, "erp", file_name)
+            cursor.execute(
+                "INSERT INTO registros_sincronizacion (fuente_datos_id, iniciado_en, estado, filas_ingresadas) VALUES (%s, %s, 'en_proceso', 0) RETURNING id",
+                (data_source_id, started),
+            )
+            sync_log_id = cursor.fetchone()[0]
+            for value in document_values:
+                payload = {"file_name": file_name, **value}
+                cursor.execute(
+                    "INSERT INTO datos_temporales_erp (registro_sincronizacion_id, carga_cruda, ingresado_en) VALUES (%s, %s::jsonb, %s)",
+                    (sync_log_id, json.dumps(payload, default=_json_value), started),
+                )
+            cursor.execute(
+                "UPDATE registros_sincronizacion SET finalizado_en = %s, estado = 'exitoso', filas_ingresadas = %s, filas_rechazadas = 0 WHERE id = %s",
+                (datetime.now(timezone.utc), len(document_values), sync_log_id),
+            )
+            conn.commit()
+    return {
+        "sync_log_id": sync_log_id,
+        "data_source_id": data_source_id,
+        "rows_ingested": len(document_values),
+        "rows_rejected": 0,
         "status": "exitoso",
     }

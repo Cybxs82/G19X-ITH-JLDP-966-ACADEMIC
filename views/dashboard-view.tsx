@@ -1,14 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import type { AuthUser } from "@/controllers/auth-controller";
 import type { FinancialDashboard } from "@/models/financial-model";
 
-type DashboardViewProps = { dashboard: FinancialDashboard; user: AuthUser; onLogout: () => Promise<void>; onEditProfile: () => void };
+type DashboardViewProps = {
+  dashboard: FinancialDashboard;
+  user: AuthUser;
+  onLogout: () => Promise<void>;
+  onEditProfile: () => void;
+  onOpenDashboard: () => void;
+  onOpenIngestion: () => void;
+  activeSection?: "Resumen" | "Carga ERP";
+  children?: ReactNode;
+};
 
-export function DashboardView({ dashboard, user, onLogout, onEditProfile }: DashboardViewProps) {
+export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, activeSection = "Resumen", children }: DashboardViewProps) {
   const [activeArea, setActiveArea] = useState("Todas");
-  const [activeNav, setActiveNav] = useState("Resumen");
+  const [activeNav, setActiveNav] = useState<string>(activeSection);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() =>
@@ -52,8 +62,16 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile }: Dash
         <div className="workspace-label">PLATAFORMA CFO</div>
 
         <nav className="main-nav" aria-label="Navegación principal">
-          {["Resumen", "Flujo de caja", "Presupuesto", "Reportes"].map((item) => (
-            <button className={activeNav === item ? "nav-item active" : "nav-item"} key={item} onClick={() => setActiveNav(item)}>
+          {["Resumen", "Flujo de caja", "Presupuesto", "Reportes", "Carga ERP"].map((item) => (
+            <button
+              className={activeNav === item ? "nav-item active" : "nav-item"}
+              key={item}
+              onClick={() => {
+                setActiveNav(item);
+                if (item === "Carga ERP") onOpenIngestion();
+                if (item === "Resumen" && activeSection === "Carga ERP") onOpenDashboard();
+              }}
+            >
               <span className="nav-dot" />{item}
             </button>
           ))}
@@ -142,6 +160,8 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile }: Dash
 
         <div className="page-content">
           {logoutError && <p className="auth-error" role="alert">{logoutError}</p>}
+          {activeSection === "Carga ERP" ? children : (
+          <>
           <div className="page-heading">
             <div>
               <p className="eyebrow">LUNES, 21 DE SEPTIEMBRE DE 2026</p>
@@ -327,6 +347,8 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile }: Dash
           <footer className="footer-note">
             <span className="status-dot" /> Consolidado ERP + Banco · Última sincronización {dashboard.lastSync}
           </footer>
+          </>
+          )}
         </div>
       </section>
     </main>

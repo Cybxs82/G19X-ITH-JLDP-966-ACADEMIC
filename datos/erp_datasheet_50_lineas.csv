@@ -1,0 +1,51 @@
+fecha,monto,cuenta,nombre_cuenta,categoria,centro_costo,concepto,referencia,moneda
+2026-01-05,185000,4001,Ingresos por servicios,ingresos,CC-COM,Servicio de consultoria empresarial,ERP-0001,MXN
+2026-01-06,-28450,5101,Servicios profesionales,gastos,CC-TEC,Asesoria de infraestructura,ERP-0002,MXN
+2026-01-07,-12600,5201,Logistica y distribucion,gastos,CC-OPE,Envio de equipos a cliente,ERP-0003,MXN
+2026-01-08,94500,4002,Ingresos por licencias,ingresos,CC-COM,Renta anual de plataforma,ERP-0004,MXN
+2026-01-09,-38200,5301,Campanas de marketing,gastos,CC-COM,Publicidad digital enero,ERP-0005,MXN
+2026-01-12,-76000,5401,Nomina administrativa,gastos,CC-ADM,Nomina primera quincena,ERP-0006,MXN
+2026-01-13,127000,4001,Ingresos por servicios,ingresos,CC-COM,Implementacion de sistema ERP,ERP-0007,MXN
+2026-01-14,-14800,5501,Renta de oficinas,gastos,CC-ADM,Renta oficina central enero,ERP-0008,MXN
+2026-01-15,-9360,5601,Servicios de nube,gastos,CC-TEC,Infraestructura cloud enero,ERP-0009,MXN
+2026-01-16,63200,4003,Ingresos por soporte,ingresos,CC-SOP,Soporte tecnico mensual,ERP-0010,MXN
+2026-01-19,-22100,5701,Equipo de computo,gastos,CC-TEC,Accesorios para estaciones de trabajo,ERP-0011,MXN
+2026-01-20,-17450,5201,Logistica y distribucion,gastos,CC-OPE,Traslado de inventario regional,ERP-0012,MXN
+2026-01-21,208000,4001,Ingresos por servicios,ingresos,CC-COM,Desarrollo de modulo financiero,ERP-0013,MXN
+2026-01-22,-31500,5801,Capacitacion,gastos,CC-ADM,Taller de cumplimiento fiscal,ERP-0014,MXN
+2026-01-23,-12780,5901,Servicios publicos,gastos,CC-ADM,Energia y agua enero,ERP-0015,MXN
+2026-01-26,78400,4002,Ingresos por licencias,ingresos,CC-COM,Licencias de software trimestrales,ERP-0016,MXN
+2026-01-27,-48600,5301,Campanas de marketing,gastos,CC-COM,Produccion de contenido comercial,ERP-0017,MXN
+2026-01-28,-68500,5401,Nomina administrativa,gastos,CC-ADM,Nomina segunda quincena,ERP-0018,MXN
+2026-01-29,113500,4003,Ingresos por soporte,ingresos,CC-SOP,Mantenimiento y soporte,ERP-0019,MXN
+2026-01-30,-19200,5101,Servicios profesionales,gastos,CC-TEC,Auditoria de seguridad,ERP-0020,MXN
+2026-02-02,196000,4001,Ingresos por servicios,ingresos,CC-COM,Servicio de consultoria empresarial,ERP-0021,MXN
+2026-02-03,-26800,5201,Logistica y distribucion,gastos,CC-OPE,Entrega de refacciones,ERP-0022,MXN
+2026-02-04,102500,4002,Ingresos por licencias,ingresos,CC-COM,Renovacion de licencias,ERP-0023,MXN
+2026-02-05,-35400,5301,Campanas de marketing,gastos,CC-COM,Campana de generacion de demanda,ERP-0024,MXN
+2026-02-06,-79000,5401,Nomina administrativa,gastos,CC-ADM,Nomina primera quincena,ERP-0025,MXN
+2026-02-09,-15100,5501,Renta de oficinas,gastos,CC-ADM,Renta oficina central febrero,ERP-0026,MXN
+2026-02-10,-10450,5601,Servicios de nube,gastos,CC-TEC,Infraestructura cloud febrero,ERP-0027,MXN
+2026-02-11,142000,4001,Ingresos por servicios,ingresos,CC-COM,Implementacion de sistema ERP,ERP-0028,MXN
+2026-02-12,-24800,5701,Equipo de computo,gastos,CC-TEC,Memoria y almacenamiento de servidores,ERP-0029,MXN
+2026-02-13,69800,4003,Ingresos por soporte,ingresos,CC-SOP,Soporte tecnico mensual,ERP-0030,MXN
+2026-02-16,-18900,5801,Capacitacion,gastos,CC-ADM,Certificaciones del equipo financiero,ERP-0031,MXN
+2026-02-17,-14320,5901,Servicios publicos,gastos,CC-ADM,Energia y agua febrero,ERP-0032,MXN
+2026-02-18,219500,4001,Ingresos por servicios,ingresos,CC-COM,Desarrollo de modulo financiero,ERP-0033,MXN
+2026-02-19,-41200,5301,Campanas de marketing,gastos,CC-COM,Publicidad digital febrero,ERP-0034,MXN
+2026-02-20,-71300,5401,Nomina administrativa,gastos,CC-ADM,Nomina segunda quincena,ERP-0035,MXN
+2026-02-23,82600,4002,Ingresos por licencias,ingresos,CC-COM,Licencias de software trimestrales,ERP-0036,MXN
+2026-02-24,-32750,5101,Servicios profesionales,gastos,CC-TEC,Asesoria de arquitectura de datos,ERP-0037,MXN
+2026-02-25,-21300,5201,Logistica y distribucion,gastos,CC-OPE,Distribucion de materiales,ERP-0038,MXN
+2026-02-26,121000,4003,Ingresos por soporte,ingresos,CC-SOP,Mantenimiento y soporte,ERP-0039,MXN
+2026-02-27,-16750,5501,Renta de oficinas,gastos,CC-ADM,Estacionamiento y mantenimiento,ERP-0040,MXN
+2026-03-02,203000,4001,Ingresos por servicios,ingresos,CC-COM,Servicio de consultoria empresarial,ERP-0041,MXN
+2026-03-03,-29600,5601,Servicios de nube,gastos,CC-TEC,Infraestructura cloud marzo,ERP-0042,MXN
+2026-03-04,98600,4002,Ingresos por licencias,ingresos,CC-COM,Renta anual de plataforma,ERP-0043,MXN
+2026-03-05,-37900,5301,Campanas de marketing,gastos,CC-COM,Produccion de contenido comercial,ERP-0044,MXN
+2026-03-06,-80500,5401,Nomina administrativa,gastos,CC-ADM,Nomina primera quincena,ERP-0045,MXN
+2026-03-09,-22500,5201,Logistica y distribucion,gastos,CC-OPE,Envio de equipos a cliente,ERP-0046,MXN
+2026-03-10,135000,4001,Ingresos por servicios,ingresos,CC-COM,Implementacion de sistema ERP,ERP-0047,MXN
+2026-03-11,-19100,5801,Capacitacion,gastos,CC-ADM,Taller de control presupuestal,ERP-0048,MXN
+2026-03-12,73500,4003,Ingresos por soporte,ingresos,CC-SOP,Soporte tecnico mensual,ERP-0049,MXN
+2026-03-13,-16400,5901,Servicios publicos,gastos,CC-ADM,Energia y agua marzo,ERP-0050,MXN

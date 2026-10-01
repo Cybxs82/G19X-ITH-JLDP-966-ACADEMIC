@@ -28,6 +28,7 @@ El punto de entrada es [`main.py`](main.py). La API expone documentacion OpenAPI
 - `GET /recommendations` y `POST /feedback`: recomendaciones y feedback del CFO.
 - `POST /sync`: registro de una corrida de sincronizacion.
 - `POST /ingestion/files?source_type=erp`: carga automatizada de archivos `.xlsx`, `.csv` o `.pdf`.
+- `POST /ingestion/documents`: carga autenticada de documentos ERP PDF, CSV o Excel; conserva el texto/payload extraído en staging sin normalizarlo ni recalcular KPIs.
 - `GET /health`: health check.
 
 La conexion PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /health`. La Fase 2 conserva el archivo recibido en `datos_temporales_erp` o `datos_temporales_banco`, normaliza cuentas, centros de costo y transacciones, registra filas rechazadas en `registros_sincronizacion_rechazados` y recalcula los KPIs desde `transacciones`. Si no hay transacciones cargadas, la aplicacion mantiene el seed demo como fallback de desarrollo. No se guardan credenciales en el codigo.

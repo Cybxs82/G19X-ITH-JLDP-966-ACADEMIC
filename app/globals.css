@@ -636,6 +636,16 @@ h2 { font-size: 18px; }
   padding: 12px 14px;
 }
 .profile-back-link { background: transparent; color: var(--teal); font-size: 12px; font-weight: 700; padding: 10px 0 0; }
+.erp-upload-content { margin: 0 auto; max-width: 1050px; padding: 8px 0 30px; }
+.erp-upload-content h1 { font-size: 34px; }
+.erp-upload-form { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 22px; margin-top: 30px; padding: 26px; }
+.erp-file-field { color: var(--ink); display: grid; font-size: 13px; font-weight: 700; gap: 10px; }
+.erp-file-field input { background: var(--paper); border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); padding: 16px; width: 100%; }
+.erp-file-field small { color: var(--muted); font-size: 11px; font-weight: 400; }
+.erp-upload-form .auth-error { margin: 0; }
+.upload-success { background: rgba(31, 157, 138, 0.12); border: 1px solid rgba(31, 157, 138, 0.3); border-radius: 7px; color: var(--teal); font-size: 13px; margin: 0; padding: 12px 14px; }
+.erp-upload-actions { display: flex; justify-content: flex-end; }
+.erp-upload-actions button:disabled { cursor: not-allowed; opacity: 0.6; }
 @media (max-width: 1050px) {
   .sidebar { flex-basis: 205px; }
   .page-content { padding-left: 28px; padding-right: 28px; }
@@ -678,4 +688,7 @@ h2 { font-size: 18px; }
   .profile-page-header h1 { font-size: 30px; }
   .profile-actions { flex-direction: column-reverse; }
   .profile-actions button { width: 100%; }
+  .erp-upload-content { padding: 0; }
+  .erp-upload-form { padding: 18px; }
+  .erp-upload-actions button { width: 100%; }
 }

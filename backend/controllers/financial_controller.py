@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from pathlib import Path
 from typing import List, Optional
 from uuid import UUID
 
@@ -25,7 +26,7 @@ from ..models.schemas import (
     SyncResponse,
 )
 from ..repositories.financial_repository import PostgreSQLRepository
-from ..services.ingestion_service import ingest_file
+from ..services.ingestion_service import ingest_erp_document, ingest_file
 from ..services.auth_service import SESSION_COOKIE, authenticate_user, get_session_user, register_user, revoke_session, update_profile
 
 
@@ -134,6 +135,26 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
             raise HTTPException(status_code=422, detail="source_type debe ser erp o banco")
         try:
             result = ingest_file(file.filename or "financial-file", await file.read(), source_type)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return IngestionResponse(**result)
+
+    @router.post("/ingestion/documents", response_model=IngestionResponse, status_code=202)
+    async def ingest_erp_document_route(request: Request, file: UploadFile = File(...)) -> IngestionResponse:
+        if get_session_user(request.cookies.get(SESSION_COOKIE)) is None:
+            raise HTTPException(status_code=401, detail="Sesión no iniciada")
+        file_name = Path(file.filename or "").name
+        if not file_name:
+            raise HTTPException(status_code=422, detail="El archivo debe tener un nombre")
+        if Path(file_name).suffix.lower() not in {".pdf", ".csv", ".xlsx", ".xlsm"}:
+            raise HTTPException(status_code=415, detail="Usa un archivo PDF, CSV o Excel (.xlsx, .xlsm)")
+        content = await file.read(20 * 1024 * 1024 + 1)
+        if len(content) > 20 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="El archivo supera el límite de 20 MB")
+        if not content:
+            raise HTTPException(status_code=422, detail="El archivo está vacío")
+        try:
+            result = ingest_erp_document(file_name, content)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         return IngestionResponse(**result)

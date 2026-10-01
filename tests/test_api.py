@@ -48,3 +48,12 @@ def test_dashboard_rejects_inverted_period() -> None:
         params={"period_from": "2026-12-01", "period_to": "2026-01-01"},
     )
     assert response.status_code == 422
+
+
+def test_erp_document_ingestion_requires_session() -> None:
+    response = client.post(
+        "/api/v1/ingestion/documents",
+        files={"file": ("erp.csv", b"fecha,monto\n2026-01-01,10", "text/csv")},
+    )
+
+    assert response.status_code == 401

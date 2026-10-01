@@ -67,7 +67,7 @@ export default function Home() {
   }
 
   if (authState === "authenticated" && user) {
-    return <DashboardView dashboard={dashboard} user={user} onLogout={handleLogout} onEditProfile={() => router.push("/profile")} />;
+    return <DashboardView dashboard={dashboard} user={user} onLogout={handleLogout} onEditProfile={() => router.push("/profile")} onOpenDashboard={() => router.push("/")} onOpenIngestion={() => router.push("/ingestion")} />;
   }
 
   return (

@@ -9,6 +9,13 @@ export type AuthUser = {
 };
 
 type AuthResponse = { user: AuthUser };
+export type ERPDocumentIngestion = {
+  sync_log_id: number;
+  data_source_id: number;
+  rows_ingested: number;
+  rows_rejected: number;
+  status: string;
+};
 
 const apiUrl = process.env.CFO_API_URL ?? "http://localhost:8000/api/v1";
 
@@ -101,4 +108,20 @@ export async function updateProfile(payload: {
   });
   if (!response.ok) throw new Error(await readError(response));
   return ((await response.json()) as AuthResponse).user;
+}
+
+export async function uploadERPDocument(file: File): Promise<ERPDocumentIngestion> {
+  const formData = new FormData();
+  formData.append("file", file);
+  try {
+    const response = await fetch(`${apiUrl}/ingestion/documents`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    if (!response.ok) throw new Error(await readError(response));
+    return (await response.json()) as ERPDocumentIngestion;
+  } catch (error) {
+    throw getNetworkError(error);
+  }
 }
