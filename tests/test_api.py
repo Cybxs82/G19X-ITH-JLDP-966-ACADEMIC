@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from backend.controllers.financial_controller import require_authenticated_user
 from backend.models.schemas import AlertResponse, AlertSeverity, AlertStatus
+from backend.infrastructure.database import get_db_connection
 from main import app, repository
 
 
@@ -27,6 +28,18 @@ def test_health_check() -> None:
     assert response.status_code == 200
     assert response.json()["status"] in {"ok", "degraded"}
     assert response.json()["database"] in {"connected", "unavailable"}
+
+
+def test_alert_id_sequence_is_ahead_of_existing_rows() -> None:
+    with get_db_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COALESCE(MAX(id), 0) FROM alertas")
+            maximum_id = cursor.fetchone()[0]
+            cursor.execute("SELECT last_value, is_called FROM alertas_id_seq")
+            sequence_value, is_called = cursor.fetchone()
+
+    assert sequence_value >= maximum_id
+    assert maximum_id == 0 or is_called
 
 
 def test_dashboard_contract(analyst_session) -> None:

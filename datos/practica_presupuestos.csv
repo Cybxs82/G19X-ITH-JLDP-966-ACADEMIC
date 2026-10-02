@@ -1,0 +1,55 @@
+periodo,monto_presupuestado,cuenta,nombre_cuenta,centro_costo
+2026-04-01,25000,5101,Servicios profesionales,CC-TEC
+2026-04-01,24000,5201,Logistica y distribucion,CC-OPE
+2026-04-01,40000,5301,Campanas de marketing,CC-COM
+2026-04-01,145000,5401,Nomina administrativa,CC-ADM
+2026-04-01,15000,5501,Renta de oficinas,CC-ADM
+2026-04-01,12000,5601,Servicios de nube,CC-TEC
+2026-04-01,20000,5701,Equipo de computo,CC-TEC
+2026-04-01,10000,5801,Capacitacion,CC-ADM
+2026-04-01,10000,5901,Servicios publicos,CC-ADM
+2026-05-01,25000,5101,Servicios profesionales,CC-TEC
+2026-05-01,24000,5201,Logistica y distribucion,CC-OPE
+2026-05-01,40000,5301,Campanas de marketing,CC-COM
+2026-05-01,145000,5401,Nomina administrativa,CC-ADM
+2026-05-01,15000,5501,Renta de oficinas,CC-ADM
+2026-05-01,12000,5601,Servicios de nube,CC-TEC
+2026-05-01,20000,5701,Equipo de computo,CC-TEC
+2026-05-01,10000,5801,Capacitacion,CC-ADM
+2026-05-01,10000,5901,Servicios publicos,CC-ADM
+2026-06-01,25000,5101,Servicios profesionales,CC-TEC
+2026-06-01,24000,5201,Logistica y distribucion,CC-OPE
+2026-06-01,40000,5301,Campanas de marketing,CC-COM
+2026-06-01,145000,5401,Nomina administrativa,CC-ADM
+2026-06-01,15000,5501,Renta de oficinas,CC-ADM
+2026-06-01,12000,5601,Servicios de nube,CC-TEC
+2026-06-01,20000,5701,Equipo de computo,CC-TEC
+2026-06-01,10000,5801,Capacitacion,CC-ADM
+2026-06-01,10000,5901,Servicios publicos,CC-ADM
+2026-07-01,25000,5101,Servicios profesionales,CC-TEC
+2026-07-01,24000,5201,Logistica y distribucion,CC-OPE
+2026-07-01,40000,5301,Campanas de marketing,CC-COM
+2026-07-01,145000,5401,Nomina administrativa,CC-ADM
+2026-07-01,15000,5501,Renta de oficinas,CC-ADM
+2026-07-01,12000,5601,Servicios de nube,CC-TEC
+2026-07-01,20000,5701,Equipo de computo,CC-TEC
+2026-07-01,10000,5801,Capacitacion,CC-ADM
+2026-07-01,10000,5901,Servicios publicos,CC-ADM
+2026-08-01,25000,5101,Servicios profesionales,CC-TEC
+2026-08-01,24000,5201,Logistica y distribucion,CC-OPE
+2026-08-01,40000,5301,Campanas de marketing,CC-COM
+2026-08-01,145000,5401,Nomina administrativa,CC-ADM
+2026-08-01,15000,5501,Renta de oficinas,CC-ADM
+2026-08-01,12000,5601,Servicios de nube,CC-TEC
+2026-08-01,20000,5701,Equipo de computo,CC-TEC
+2026-08-01,10000,5801,Capacitacion,CC-ADM
+2026-08-01,10000,5901,Servicios publicos,CC-ADM
+2026-09-01,25000,5101,Servicios profesionales,CC-TEC
+2026-09-01,24000,5201,Logistica y distribucion,CC-OPE
+2026-09-01,40000,5301,Campanas de marketing,CC-COM
+2026-09-01,145000,5401,Nomina administrativa,CC-ADM
+2026-09-01,15000,5501,Renta de oficinas,CC-ADM
+2026-09-01,12000,5601,Servicios de nube,CC-TEC
+2026-09-01,20000,5701,Equipo de computo,CC-TEC
+2026-09-01,10000,5801,Capacitacion,CC-ADM
+2026-09-01,10000,5901,Servicios publicos,CC-ADM

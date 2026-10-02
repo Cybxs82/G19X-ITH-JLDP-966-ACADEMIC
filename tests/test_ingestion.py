@@ -206,5 +206,6 @@ def test_alert_thresholds_are_ten_and_twenty_percent() -> None:
     _refresh_alerts(cursor)
 
     alert_writes = [parameters for query, parameters in cursor.statements if "INSERT INTO alertas" in query]
+    assert "setval" in cursor.statements[0][0].lower()
     assert [parameters[6] for parameters in alert_writes] == ["media", "alta", "media"]
     assert [parameters[5] for parameters in alert_writes] == [Decimal("15.00"), Decimal("25.00"), Decimal("-10.00")]

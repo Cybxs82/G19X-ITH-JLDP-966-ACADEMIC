@@ -315,6 +315,16 @@ def _refresh_kpis(cursor: Any) -> None:
 def _refresh_alerts(cursor: Any) -> None:
     cursor.execute(
         """
+        SELECT setval(
+            pg_get_serial_sequence('alertas', 'id'),
+            GREATEST(COALESCE((SELECT MAX(id) FROM alertas), 1), sequence_state.last_value),
+            COALESCE((SELECT MAX(id) FROM alertas), 0) > 0 OR sequence_state.is_called
+        )
+        FROM alertas_id_seq AS sequence_state
+        """
+    )
+    cursor.execute(
+        """
         WITH latest_budgets AS (
             SELECT DISTINCT ON (b.cuenta_id, b.centro_costo_id, b.periodo)
                    b.cuenta_id, b.centro_costo_id, b.periodo, b.monto_presupuestado

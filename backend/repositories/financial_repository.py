@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from ..infrastructure.config import get_settings
@@ -20,6 +20,19 @@ from ..models.schemas import (
     RecommendationResponse,
     SyncResponse,
 )
+
+
+def _sync_alert_id_sequence(cursor: Any) -> None:
+    cursor.execute(
+        """
+        SELECT setval(
+            pg_get_serial_sequence('alertas', 'id'),
+            GREATEST(COALESCE((SELECT MAX(id) FROM alertas), 1), sequence_state.last_value),
+            COALESCE((SELECT MAX(id) FROM alertas), 0) > 0 OR sequence_state.is_called
+        )
+        FROM alertas_id_seq AS sequence_state
+        """
+    )
 
 
 class PostgreSQLRepository:
@@ -45,6 +58,7 @@ class PostgreSQLRepository:
                     """
                 )
                 if not get_settings().enable_demo_data:
+                    _sync_alert_id_sequence(cursor)
                     conn.commit()
                     return
                 cursor.execute(
@@ -126,6 +140,7 @@ class PostgreSQLRepository:
                         now,
                     ),
                 )
+                _sync_alert_id_sequence(cursor)
 
                 cursor.execute("DELETE FROM recomendaciones_ia WHERE id NOT IN (1, 2)")
                 now = datetime.now(timezone.utc)

@@ -1,0 +1,51 @@
+fecha,monto,cuenta,nombre_cuenta,categoria,centro_costo,concepto,referencia,moneda
+2026-04-03,-31000,5101,Servicios profesionales,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-04-01,MXN
+2026-04-06,-21000,5201,Logistica y distribucion,gastos,CC-OPE,Movimiento ficticio para prueba MVP,ERP-PRACTICA-04-02,MXN
+2026-04-09,-42000,5301,Campanas de marketing,gastos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-04-03,MXN
+2026-04-12,-146000,5401,Nomina administrativa,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-04-04,MXN
+2026-04-15,-14200,5601,Servicios de nube,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-04-05,MXN
+2026-04-18,-11000,5901,Servicios publicos,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-04-06,MXN
+2026-04-21,175000,4001,Ingresos por servicios,ingresos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-04-07,MXN
+2026-04-24,92500,4002,Ingresos por licencias,ingresos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-04-08,MXN
+2026-05-03,-31000,5101,Servicios profesionales,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-05-01,MXN
+2026-05-06,-21000,5201,Logistica y distribucion,gastos,CC-OPE,Movimiento ficticio para prueba MVP,ERP-PRACTICA-05-02,MXN
+2026-05-09,-42000,5301,Campanas de marketing,gastos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-05-03,MXN
+2026-05-12,-146000,5401,Nomina administrativa,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-05-04,MXN
+2026-05-15,-14200,5601,Servicios de nube,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-05-05,MXN
+2026-05-18,-11000,5901,Servicios publicos,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-05-06,MXN
+2026-05-21,175000,4001,Ingresos por servicios,ingresos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-05-07,MXN
+2026-05-24,92500,4002,Ingresos por licencias,ingresos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-05-08,MXN
+2026-06-03,-31000,5101,Servicios profesionales,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-06-01,MXN
+2026-06-06,-21000,5201,Logistica y distribucion,gastos,CC-OPE,Movimiento ficticio para prueba MVP,ERP-PRACTICA-06-02,MXN
+2026-06-09,-42000,5301,Campanas de marketing,gastos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-06-03,MXN
+2026-06-12,-146000,5401,Nomina administrativa,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-06-04,MXN
+2026-06-15,-14200,5601,Servicios de nube,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-06-05,MXN
+2026-06-18,-11000,5901,Servicios publicos,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-06-06,MXN
+2026-06-21,175000,4001,Ingresos por servicios,ingresos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-06-07,MXN
+2026-06-24,92500,4002,Ingresos por licencias,ingresos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-06-08,MXN
+2026-07-03,-31000,5101,Servicios profesionales,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-07-01,MXN
+2026-07-06,-21000,5201,Logistica y distribucion,gastos,CC-OPE,Movimiento ficticio para prueba MVP,ERP-PRACTICA-07-02,MXN
+2026-07-09,-42000,5301,Campanas de marketing,gastos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-07-03,MXN
+2026-07-12,-146000,5401,Nomina administrativa,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-07-04,MXN
+2026-07-15,-14200,5601,Servicios de nube,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-07-05,MXN
+2026-07-18,-11000,5901,Servicios publicos,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-07-06,MXN
+2026-07-21,175000,4001,Ingresos por servicios,ingresos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-07-07,MXN
+2026-07-24,92500,4002,Ingresos por licencias,ingresos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-07-08,MXN
+2026-08-03,-31000,5101,Servicios profesionales,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-08-01,MXN
+2026-08-06,-21000,5201,Logistica y distribucion,gastos,CC-OPE,Movimiento ficticio para prueba MVP,ERP-PRACTICA-08-02,MXN
+2026-08-09,-42000,5301,Campanas de marketing,gastos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-08-03,MXN
+2026-08-12,-146000,5401,Nomina administrativa,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-08-04,MXN
+2026-08-15,-14200,5601,Servicios de nube,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-08-05,MXN
+2026-08-18,-11000,5901,Servicios publicos,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-08-06,MXN
+2026-08-21,175000,4001,Ingresos por servicios,ingresos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-08-07,MXN
+2026-08-24,92500,4002,Ingresos por licencias,ingresos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-08-08,MXN
+2026-09-03,-31000,5101,Servicios profesionales,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-09-01,MXN
+2026-09-06,-21000,5201,Logistica y distribucion,gastos,CC-OPE,Movimiento ficticio para prueba MVP,ERP-PRACTICA-09-02,MXN
+2026-09-09,-42000,5301,Campanas de marketing,gastos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-09-03,MXN
+2026-09-12,-146000,5401,Nomina administrativa,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-09-04,MXN
+2026-09-15,-14200,5601,Servicios de nube,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-09-05,MXN
+2026-09-18,-11000,5901,Servicios publicos,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-09-06,MXN
+2026-09-21,-25000,5701,Equipo de computo,gastos,CC-TEC,Movimiento ficticio para prueba MVP,ERP-PRACTICA-09-07,MXN
+2026-09-24,-12000,5801,Capacitacion,gastos,CC-ADM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-09-08,MXN
+2026-09-27,175000,4001,Ingresos por servicios,ingresos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-09-09,MXN
+2026-09-27,92500,4002,Ingresos por licencias,ingresos,CC-COM,Movimiento ficticio para prueba MVP,ERP-PRACTICA-09-10,MXN
