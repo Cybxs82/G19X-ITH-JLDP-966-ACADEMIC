@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.controllers.financial_controller import require_authenticated_user
-from backend.models.schemas import AlertResponse, AlertSeverity, AlertStatus
+from backend.models.schemas import AlertResponse, AlertSeverity, AlertStatus, ForecastResponse
 from backend.infrastructure.database import get_db_connection
 from main import app, repository
 
@@ -49,6 +49,44 @@ def test_dashboard_contract(analyst_session) -> None:
     assert isinstance(body["kpis"], list)
     assert body["forecast"]["horizon_days"] == 90
     assert isinstance(body["alerts"], list)
+
+
+def test_dashboard_propagates_date_and_center_filters(monkeypatch, analyst_session) -> None:
+    captured = {}
+
+    def fake_kpis(period_from, period_to, cost_center_id):
+        captured["kpis"] = (period_from, period_to, cost_center_id)
+        return []
+
+    def fake_forecast(horizon_days, period_from, period_to, cost_center_id):
+        captured["forecast"] = (horizon_days, period_from, period_to, cost_center_id)
+        return ForecastResponse(
+            forecast_run_id=0,
+            model_name="sin_datos",
+            generated_at=datetime.now(timezone.utc),
+            horizon_days=horizon_days,
+            values=[],
+        )
+
+    def fake_alerts(*, cost_center_id, period_from, period_to):
+        captured["alerts"] = (period_from, period_to, cost_center_id)
+        return []
+
+    monkeypatch.setattr(repository, "list_kpis", fake_kpis)
+    monkeypatch.setattr(repository, "forecast", fake_forecast)
+    monkeypatch.setattr(repository, "list_alerts", fake_alerts)
+    monkeypatch.setattr(repository, "list_recommendations", lambda: [])
+
+    response = client.get(
+        "/api/v1/dashboard",
+        params={"period_from": "2026-04-01", "period_to": "2026-09-30", "cost_center_id": 4},
+    )
+
+    assert response.status_code == 200
+    expected_filters = (date(2026, 4, 1), date(2026, 9, 30), 4)
+    assert captured["kpis"] == expected_filters
+    assert captured["alerts"] == expected_filters
+    assert captured["forecast"] == (90, *expected_filters)
 
 
 def test_alert_can_be_attended(monkeypatch, analyst_session) -> None:

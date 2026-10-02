@@ -228,6 +228,25 @@ def _upsert_transaction(cursor: Any, row: Dict[str, Any], source_type: str, data
     )
 
 
+def _calculate_kpi_values(
+    income: Decimal,
+    expenses: Decimal,
+    budget: Decimal,
+    bank_flow: Optional[Decimal],
+    has_erp_actuals: bool,
+) -> Dict[str, Decimal]:
+    metrics: Dict[str, Decimal] = {}
+    if bank_flow is not None:
+        metrics["flujo_neto_bancario"] = bank_flow
+    if has_erp_actuals:
+        metrics["ingresos_acumulados"] = income
+        if income > 0:
+            metrics["margen_operativo"] = (income - expenses) / income * Decimal("100")
+        if budget > 0:
+            metrics["desviacion_presupuestal"] = (expenses - budget) / budget * Decimal("100")
+    return metrics
+
+
 def _refresh_kpis(cursor: Any) -> None:
     cursor.execute(
         "UPDATE definiciones_kpi SET codigo = 'flujo_neto_bancario', nombre = 'Flujo neto bancario', descripcion_formula = 'Suma mensual de movimientos bancarios; no representa saldo sin saldo inicial' WHERE codigo = 'liquidez_inmediata'"
@@ -237,66 +256,68 @@ def _refresh_kpis(cursor: Any) -> None:
     )
     definition_ids = {code: definition_id for definition_id, code in cursor.fetchall()}
     cursor.execute(
-        "DELETE FROM valores_kpi WHERE definicion_kpi_id IN (SELECT id FROM definiciones_kpi WHERE codigo IN ('flujo_neto_bancario', 'margen_operativo', 'ingresos_acumulados', 'desviacion_presupuestal')) AND centro_costo_id IS NULL"
+        "DELETE FROM valores_kpi WHERE definicion_kpi_id IN (SELECT id FROM definiciones_kpi WHERE codigo IN ('flujo_neto_bancario', 'margen_operativo', 'ingresos_acumulados', 'desviacion_presupuestal'))"
     )
 
-    periods: Dict[date, Dict[str, Decimal]] = {}
+    erp_periods: Dict[Tuple[date, Optional[int]], Dict[str, Decimal]] = {}
     cursor.execute(
         """
-        SELECT date_trunc('month', fecha_transaccion)::date,
+        SELECT date_trunc('month', fecha_transaccion)::date, centro_costo_id,
                COALESCE(SUM(CASE WHEN monto > 0 THEN monto ELSE 0 END), 0),
                COALESCE(SUM(CASE WHEN monto < 0 THEN ABS(monto) ELSE 0 END), 0)
         FROM transacciones
-        GROUP BY 1
-        ORDER BY 1
+        WHERE tipo_fuente = 'erp'::fuente_tipo
+        GROUP BY 1, 2
+        ORDER BY 1, 2
         """
     )
-    for period, income, expenses in cursor.fetchall():
-        periods[period] = {
+    for period, center_id, income, expenses in cursor.fetchall():
+        erp_periods[(period, center_id)] = {
             "income": Decimal(str(income)),
             "expenses": Decimal(str(expenses)),
-            "has_actuals": True,
         }
 
+    bank_flows: Dict[Tuple[date, Optional[int]], Decimal] = {}
     cursor.execute(
         """
-        SELECT date_trunc('month', fecha_transaccion)::date, COALESCE(SUM(monto), 0)
+        SELECT date_trunc('month', fecha_transaccion)::date, centro_costo_id, COALESCE(SUM(monto), 0)
         FROM transacciones
         WHERE tipo_fuente = 'banco'::fuente_tipo
-        GROUP BY 1
+        GROUP BY 1, 2
         """
     )
-    bank_flows = {period: Decimal(str(value)) for period, value in cursor.fetchall()}
+    for period, center_id, value in cursor.fetchall():
+        bank_flows[(period, center_id)] = Decimal(str(value))
 
+    budgets: Dict[Tuple[date, Optional[int]], Decimal] = {}
     cursor.execute(
         """
         WITH latest_budgets AS (
             SELECT DISTINCT ON (b.cuenta_id, b.centro_costo_id, b.periodo)
-                   b.periodo, b.monto_presupuestado
+                   b.periodo, b.centro_costo_id, b.monto_presupuestado
             FROM presupuestos b
             ORDER BY b.cuenta_id, b.centro_costo_id, b.periodo, b.version DESC
         )
-        SELECT periodo, COALESCE(SUM(monto_presupuestado), 0)
+        SELECT periodo, centro_costo_id, COALESCE(SUM(monto_presupuestado), 0)
         FROM latest_budgets
-        GROUP BY periodo
+        GROUP BY periodo, centro_costo_id
         """
     )
-    for period, budget in cursor.fetchall():
-        periods.setdefault(period, {"income": Decimal("0"), "expenses": Decimal("0"), "has_actuals": False})["budget"] = Decimal(str(budget))
+    for period, center_id, budget in cursor.fetchall():
+        budgets[(period, center_id)] = Decimal(str(budget))
 
     now = datetime.now(timezone.utc)
-    for period, values in periods.items():
-        metrics: Dict[str, Decimal] = {}
-        if period in bank_flows:
-            metrics["flujo_neto_bancario"] = bank_flows[period]
-        income = values["income"]
-        if values["has_actuals"] and income > 0:
-            metrics["margen_operativo"] = (income - values["expenses"]) / income * Decimal("100")
-        if values["has_actuals"]:
-            metrics["ingresos_acumulados"] = income
-        budget = values.get("budget", Decimal("0"))
-        if values["has_actuals"] and budget > 0:
-            metrics["desviacion_presupuestal"] = (values["expenses"] - budget) / budget * Decimal("100")
+
+    def write_metrics(
+        period: date,
+        center_id: Optional[int],
+        income: Decimal,
+        expenses: Decimal,
+        budget: Decimal,
+        bank_flow: Optional[Decimal],
+        has_erp_actuals: bool,
+    ) -> None:
+        metrics = _calculate_kpi_values(income, expenses, budget, bank_flow, has_erp_actuals)
         for code, value in metrics.items():
             definition_id = definition_ids.get(code)
             if definition_id is None:
@@ -304,12 +325,47 @@ def _refresh_kpis(cursor: Any) -> None:
             cursor.execute(
                 """
                 INSERT INTO valores_kpi (definicion_kpi_id, centro_costo_id, periodo, valor, calculado_en)
-                VALUES (%s, NULL, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (definicion_kpi_id, centro_costo_id, periodo)
                 DO UPDATE SET valor = EXCLUDED.valor, calculado_en = EXCLUDED.calculado_en
                 """,
-                (definition_id, period, value, now),
+                (definition_id, center_id, period, value, now),
             )
+
+    periods = {period for period, _ in (*erp_periods.keys(), *bank_flows.keys(), *budgets.keys())}
+    for period in periods:
+        centers = {
+            center_id
+            for period_key, center_id in (*erp_periods.keys(), *bank_flows.keys(), *budgets.keys())
+            if period_key == period and center_id is not None
+        }
+        for center_id in centers:
+            erp_values = erp_periods.get((period, center_id), {})
+            write_metrics(
+                period,
+                center_id,
+                erp_values.get("income", Decimal("0")),
+                erp_values.get("expenses", Decimal("0")),
+                budgets.get((period, center_id), Decimal("0")),
+                bank_flows.get((period, center_id)),
+                bool(erp_values),
+            )
+
+        unassigned_erp = erp_periods.get((period, None), {})
+        unassigned_budget = budgets.get((period, None), Decimal("0"))
+        unassigned_bank_flow = bank_flows.get((period, None))
+        period_erp = [values for (erp_period, _), values in erp_periods.items() if erp_period == period]
+        period_budgets = [value for (budget_period, _), value in budgets.items() if budget_period == period]
+        period_bank_flows = [value for (bank_period, _), value in bank_flows.items() if bank_period == period]
+        write_metrics(
+            period,
+            None,
+            unassigned_erp.get("income", Decimal("0")) + sum((values["income"] for values in period_erp), Decimal("0")),
+            unassigned_erp.get("expenses", Decimal("0")) + sum((values["expenses"] for values in period_erp), Decimal("0")),
+            unassigned_budget + sum(period_budgets, Decimal("0")),
+            (unassigned_bank_flow or Decimal("0")) + sum(period_bank_flows, Decimal("0")) if period_bank_flows or unassigned_bank_flow is not None else None,
+            bool(period_erp) or bool(unassigned_erp),
+        )
 
 
 def _refresh_alerts(cursor: Any) -> None:

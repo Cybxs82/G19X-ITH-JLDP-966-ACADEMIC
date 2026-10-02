@@ -15,6 +15,7 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [dashboard, setDashboard] = useState<FinancialDashboard>(financialDashboard);
+  const [dashboardError, setDashboardError] = useState("");
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [filters, setFilters] = useState<DashboardFilters>({ periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 });
   const [errorMessage, setErrorMessage] = useState("");
@@ -39,7 +40,18 @@ export default function Home() {
 
   useEffect(() => {
     if (authState !== "authenticated") return;
-    void getFinancialDashboard(filters).then(setDashboard);
+    let ignore = false;
+    void getFinancialDashboard(filters)
+      .then((currentDashboard) => {
+        if (ignore) return;
+        setDashboard(currentDashboard);
+        setDashboardError("");
+      })
+      .catch((error) => {
+        if (ignore) return;
+        setDashboardError(error instanceof Error ? error.message : "No se pudo cargar el dashboard.");
+      });
+    return () => { ignore = true; };
   }, [authState, filters]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -79,7 +91,7 @@ export default function Home() {
   }
 
   if (authState === "authenticated" && user) {
-    return <DashboardView dashboard={dashboard} user={user} filters={filters} costCenters={costCenters} onFiltersChange={setFilters} onUpdateAlert={handleAlertUpdate} onLogout={handleLogout} onEditProfile={() => router.push("/profile")} onOpenDashboard={() => router.push("/")} onOpenIngestion={() => router.push("/ingestion")} />;
+    return <DashboardView dashboard={dashboard} user={user} dashboardError={dashboardError} filters={filters} costCenters={costCenters} onFiltersChange={setFilters} onUpdateAlert={handleAlertUpdate} onLogout={handleLogout} onEditProfile={() => router.push("/profile")} onOpenDashboard={() => router.push("/")} onOpenIngestion={() => router.push("/ingestion")} />;
   }
 
   return (

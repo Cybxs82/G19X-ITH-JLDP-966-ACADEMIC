@@ -8,6 +8,7 @@ import type { Alert, CostCenter, DashboardFilters, FinancialDashboard } from "@/
 type DashboardViewProps = {
   dashboard: FinancialDashboard;
   user: AuthUser;
+  dashboardError?: string;
   onLogout: () => Promise<void>;
   onEditProfile: () => void;
   onOpenDashboard: () => void;
@@ -20,7 +21,7 @@ type DashboardViewProps = {
   children?: ReactNode;
 };
 
-export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, onUpdateAlert, filters = { periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 }, costCenters = [], onFiltersChange, activeSection = "Resumen", children }: DashboardViewProps) {
+export function DashboardView({ dashboard, user, dashboardError = "", onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, onUpdateAlert, filters = { periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 }, costCenters = [], onFiltersChange, activeSection = "Resumen", children }: DashboardViewProps) {
   const [activeNav, setActiveNav] = useState<string>(activeSection);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -179,6 +180,7 @@ export function DashboardView({ dashboard, user, onLogout, onEditProfile, onOpen
 
         <div className="page-content">
           {logoutError && <p className="auth-error" role="alert">{logoutError}</p>}
+          {dashboardError && <p className="auth-error" role="alert">{dashboardError}</p>}
           {alertError && <p className="auth-error" role="alert">{alertError}</p>}
           {activeSection === "Carga ERP" ? children : (
           <>

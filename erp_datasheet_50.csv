@@ -1,0 +1,51 @@
+fecha,monto,cuenta,nombre_cuenta,categoria,centro_costo,concepto,referencia,moneda
+2026-09-01,125000.00,4100,Ingresos por productos,ingresos,COM-01,Venta de licencias empresariales,ERP-2026-001,MXN
+2026-09-01,-18450.00,5100,Servicios de nube,tecnologia,TEC-01,Consumo mensual de infraestructura cloud,ERP-2026-002,MXN
+2026-09-02,-32700.00,5200,Servicios profesionales,operaciones,OPS-01,Asesoria de implementacion de sistemas,ERP-2026-003,MXN
+2026-09-02,86400.00,4110,Ingresos por servicios,ingresos,COM-01,Servicio de consultoria financiera,ERP-2026-004,MXN
+2026-09-03,-12800.00,5300,Marketing digital,comercial,COM-02,Campana de anuncios digitales,ERP-2026-005,MXN
+2026-09-03,-45600.00,5400,Nomina administrativa,personal,ADM-01,Nomina quincenal administrativa,ERP-2026-006,MXN
+2026-09-04,243500.00,4100,Ingresos por productos,ingresos,COM-01,Venta de equipo de computo,ERP-2026-007,MXN
+2026-09-04,-9800.00,5500,Logistica y distribucion,operaciones,OPS-02,Envio de equipos a clientes,ERP-2026-008,MXN
+2026-09-05,-21350.00,5600,Arrendamiento de oficina,administracion,ADM-02,Renta mensual de oficina central,ERP-2026-009,MXN
+2026-09-05,-6750.00,5700,Papeleria y consumibles,administracion,ADM-01,Compra de consumibles de oficina,ERP-2026-010,MXN
+2026-09-06,58200.00,4110,Ingresos por servicios,ingresos,COM-01,Mantenimiento de plataforma empresarial,ERP-2026-011,MXN
+2026-09-07,-39200.00,5800,Servicios legales,administracion,ADM-03,Asesoria legal corporativa,ERP-2026-012,MXN
+2026-09-07,-15600.00,5100,Servicios de nube,tecnologia,TEC-01,Almacenamiento y respaldos cloud,ERP-2026-013,MXN
+2026-09-08,176000.00,4100,Ingresos por productos,ingresos,COM-02,R renovacion de licencias anuales,ERP-2026-014,MXN
+2026-09-08,-28400.00,5900,Capacitacion,personal,ADM-04,Taller de seguridad informatica,ERP-2026-015,MXN
+2026-09-09,-74300.00,5400,Nomina tecnica,personal,TEC-02,Nomina quincenal equipo tecnico,ERP-2026-016,MXN
+2026-09-09,93500.00,4110,Ingresos por servicios,ingresos,COM-01,Implementacion de modulo de reportes,ERP-2026-017,MXN
+2026-09-10,-11800.00,6000,Viajes y viaticos,operaciones,OPS-03,Traslado para visita a cliente,ERP-2026-018,MXN
+2026-09-10,-24650.00,6100,Servicios de telecomunicaciones,tecnologia,TEC-01,Telefonia e internet empresarial,ERP-2026-019,MXN
+2026-09-11,312000.00,4100,Ingresos por productos,ingresos,COM-02,Venta de servidores empresariales,ERP-2026-020,MXN
+2026-09-11,-53700.00,5200,Servicios profesionales,operaciones,OPS-01,Desarrollo de integracion ERP,ERP-2026-021,MXN
+2026-09-12,-8900.00,6200,Mantenimiento de equipo,tecnologia,TEC-02,Mantenimiento preventivo de servidores,ERP-2026-022,MXN
+2026-09-12,46750.00,4110,Ingresos por servicios,ingresos,COM-01,Soporte tecnico especializado,ERP-2026-023,MXN
+2026-09-13,-16700.00,5300,Marketing digital,comercial,COM-02,Produccion de material comercial,ERP-2026-024,MXN
+2026-09-14,-43800.00,5400,Nomina comercial,personal,COM-03,Nomina quincenal equipo comercial,ERP-2026-025,MXN
+2026-09-14,128900.00,4100,Ingresos por productos,ingresos,COM-01,Venta de suscripciones corporativas,ERP-2026-026,MXN
+2026-09-15,-29750.00,6300,Impuestos y derechos,administracion,ADM-03,Pago provisional de impuestos,ERP-2026-027,MXN
+2026-09-15,-13400.00,5500,Logistica y distribucion,operaciones,OPS-02,Paqueteria de refacciones,ERP-2026-028,MXN
+2026-09-16,71400.00,4110,Ingresos por servicios,ingresos,COM-01,Auditoria de procesos financieros,ERP-2026-029,MXN
+2026-09-16,-22100.00,6400,Seguros empresariales,administracion,ADM-02,Poliza de equipo y responsabilidad civil,ERP-2026-030,MXN
+2026-09-17,-9650.00,5700,Papeleria y consumibles,administracion,ADM-01,Compra de toner y material de archivo,ERP-2026-031,MXN
+2026-09-17,205300.00,4100,Ingresos por productos,ingresos,COM-02,Venta de estaciones de trabajo,ERP-2026-032,MXN
+2026-09-18,-36400.00,5200,Servicios profesionales,operaciones,OPS-01,Consultoria de continuidad operativa,ERP-2026-033,MXN
+2026-09-18,-18200.00,6100,Servicios de telecomunicaciones,tecnologia,TEC-01,Enlaces de datos y telefonia,ERP-2026-034,MXN
+2026-09-19,53900.00,4110,Ingresos por servicios,ingresos,COM-01,Capacitacion para usuarios ERP,ERP-2026-035,MXN
+2026-09-20,-68500.00,5400,Nomina operativa,personal,OPS-01,Nomina quincenal equipo de operaciones,ERP-2026-036,MXN
+2026-09-20,-14200.00,6000,Viajes y viaticos,comercial,COM-03,Visita comercial a cliente regional,ERP-2026-037,MXN
+2026-09-21,158600.00,4100,Ingresos por productos,ingresos,COM-01,Venta de paquetes de software,ERP-2026-038,MXN
+2026-09-21,-25400.00,5100,Servicios de nube,tecnologia,TEC-01,Licencias y almacenamiento cloud,ERP-2026-039,MXN
+2026-09-22,-11250.00,6200,Mantenimiento de equipo,tecnologia,TEC-02,Reparacion de equipo de red,ERP-2026-040,MXN
+2026-09-22,98200.00,4110,Ingresos por servicios,ingresos,COM-02,Consultoria de optimizacion de costos,ERP-2026-041,MXN
+2026-09-23,-31900.00,5800,Servicios legales,administracion,ADM-03,Revision de contratos con proveedores,ERP-2026-042,MXN
+2026-09-24,-48500.00,5400,Nomina administrativa,personal,ADM-01,Nomina de cierre mensual,ERP-2026-043,MXN
+2026-09-24,267400.00,4100,Ingresos por productos,ingresos,COM-01,Venta de infraestructura empresarial,ERP-2026-044,MXN
+2026-09-25,-7200.00,5500,Logistica y distribucion,operaciones,OPS-02,Envio urgente de componentes,ERP-2026-045,MXN
+2026-09-26,62400.00,4110,Ingresos por servicios,ingresos,COM-01,Servicio de soporte mensual,ERP-2026-046,MXN
+2026-09-27,-19800.00,5600,Arrendamiento de oficina,administracion,ADM-02,Cuota de mantenimiento de oficina,ERP-2026-047,MXN
+2026-09-28,-15750.00,5300,Marketing digital,comercial,COM-02,Campana de prospeccion empresarial,ERP-2026-048,MXN
+2026-09-29,187500.00,4100,Ingresos por productos,ingresos,COM-02,Renovacion de contratos de software,ERP-2026-049,MXN
+2026-09-30,-42600.00,6500,Servicios de auditoria,administracion,ADM-03,Auditoria mensual de controles internos,ERP-2026-050,MXN

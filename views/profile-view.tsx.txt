@@ -1,0 +1,74 @@
+"use client";
+
+import { FormEvent, useState } from "react";
+import { type AuthUser, updateProfile } from "@/controllers/auth-controller";
+
+type ProfileViewProps = { user: AuthUser; onCancel: () => void; onSaved: (user: AuthUser) => void };
+
+export function ProfileView({ user, onCancel, onSaved }: ProfileViewProps) {
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+    setIsSubmitting(true);
+    const data = new FormData(event.currentTarget);
+    const currentPassword = String(data.get("currentPassword") || "");
+    const newPassword = String(data.get("newPassword") || "");
+
+    try {
+      const updatedUser = await updateProfile({
+        email: String(data.get("email")),
+        full_name: String(data.get("fullName")),
+        username: String(data.get("username") || "") || undefined,
+        phone: String(data.get("phone") || "") || undefined,
+        current_password: currentPassword || undefined,
+        new_password: newPassword || undefined,
+      });
+      setSuccessMessage("Los cambios se guardaron correctamente.");
+      onSaved(updatedUser);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "No se pudieron guardar los cambios");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <main className="profile-page">
+      <div className="profile-page-header">
+        <div>
+          <p className="eyebrow">CUENTA Y SEGURIDAD</p>
+          <h1>Editar perfil</h1>
+          <p className="heading-copy">Actualiza tus datos personales y credenciales de acceso.</p>
+        </div>
+        <button type="button" className="secondary-button" onClick={onCancel}>Cancelar</button>
+      </div>
+
+      {errorMessage && <p className="auth-error" role="alert">{errorMessage}</p>}
+      {successMessage && <p className="profile-success" role="status">{successMessage}</p>}
+
+      <form className="profile-form" onSubmit={handleSubmit}>
+        <label><span>Nombre completo *</span><input name="fullName" defaultValue={user.full_name} required minLength={2} /></label>
+        <label><span>Correo *</span><input name="email" type="email" defaultValue={user.email} required /></label>
+        <label><span>Nombre de usuario</span><input name="username" defaultValue={user.username || ""} pattern="[a-zA-Z0-9_.-]+" minLength={3} maxLength={50} /></label>
+        <label><span>Teléfono</span><input name="phone" defaultValue={user.phone || ""} inputMode="tel" pattern="\+?[0-9 ()-]{7,20}" /></label>
+
+        <div className="profile-sensitive-section">
+          <p className="eyebrow">CAMBIOS SENSIBLES</p>
+          <p className="profile-help">Para cambiar el correo o la contraseña debes confirmar tu contraseña actual.</p>
+          <label><span>Contraseña actual</span><input name="currentPassword" type="password" autoComplete="current-password" minLength={8} /></label>
+          <label><span>Nueva contraseña</span><input name="newPassword" type="password" autoComplete="new-password" minLength={8} /></label>
+        </div>
+
+        <div className="profile-actions">
+          <button type="button" className="secondary-button" onClick={onCancel}>Cancelar</button>
+          <button type="submit" className="primary-button" disabled={isSubmitting}>{isSubmitting ? "Guardando..." : "Guardar cambios"}</button>
+        </div>
+      </form>
+    </main>
+  );
+}

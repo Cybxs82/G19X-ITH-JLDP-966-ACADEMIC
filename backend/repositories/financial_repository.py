@@ -5,6 +5,7 @@ from uuid import UUID
 
 from ..infrastructure.config import get_settings
 from ..infrastructure.database import get_db_connection
+from ..services.forecast_service import calculate_daily_forecast
 from ..services.ingestion_service import refresh_kpis_from_transactions
 from ..models.schemas import (
     AlertResponse,
@@ -237,20 +238,21 @@ class PostgreSQLRepository:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 query = """
-                                        SELECT kv.id, kd.codigo, kd.nombre, kd.categoria, kv.valor, kv.periodo, kv.centro_costo_id
-                                        FROM valores_kpi kv
-                                        JOIN definiciones_kpi kd ON kd.id = kv.definicion_kpi_id
-                                        WHERE (%s::date IS NULL OR kv.periodo >= %s)
-                                            AND (%s::date IS NULL OR kv.periodo <= %s)
-                                            AND (%s IS NULL OR kv.centro_costo_id = %s)
-                                        ORDER BY kv.periodo DESC, kd.id ASC
+                    SELECT kv.id, kd.codigo, kd.nombre, kd.categoria, kv.valor, kv.periodo, kv.centro_costo_id
+                    FROM valores_kpi kv
+                    JOIN definiciones_kpi kd ON kd.id = kv.definicion_kpi_id
+                    WHERE (%s::date IS NULL OR kv.periodo >= %s)
+                      AND (%s::date IS NULL OR kv.periodo <= %s)
+                      AND ((%s::integer IS NULL AND kv.centro_costo_id IS NULL)
+                           OR kv.centro_costo_id = %s)
+                    ORDER BY kv.periodo DESC, kd.id ASC
                 """
                 cursor.execute(query, (period_from, period_from, period_to, period_to, cost_center_id, cost_center_id))
                 rows = cursor.fetchall()
 
         result: List[KpiResponse] = []
         for row in rows:
-            change_pct = self._compute_change_pct(row[2], row[5], row[3])
+            change_pct = self._compute_change_pct(row[2], row[5], row[3], row[6])
             result.append(
                 KpiResponse(
                     id=row[0],
@@ -265,7 +267,7 @@ class PostgreSQLRepository:
             )
         return result
 
-    def _compute_change_pct(self, kpi_name: str, period: date, category: str) -> Optional[Decimal]:
+    def _compute_change_pct(self, kpi_name: str, period: date, category: str, cost_center_id: Optional[int]) -> Optional[Decimal]:
         # La comparación se hace contra el mismo KPI en el periodo anterior si existe.
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
@@ -276,21 +278,22 @@ class PostgreSQLRepository:
                     JOIN definiciones_kpi kd ON kd.id = kv.definicion_kpi_id
                                         WHERE kd.nombre = %s
                                             AND kv.periodo < %s
+                                            AND kv.centro_costo_id IS NOT DISTINCT FROM %s
                                         ORDER BY kv.periodo DESC
                     LIMIT 1
                     """,
-                    (kpi_name, period),
+                                        (kpi_name, period, cost_center_id),
                 )
                 prev_row = cursor.fetchone()
                 if prev_row is None:
                     return None
-                current_value = self._current_kpi_value(kpi_name, period)
+                current_value = self._current_kpi_value(kpi_name, period, cost_center_id)
                 previous_value = Decimal(str(prev_row[0]))
                 if previous_value == 0:
                     return None
                 return ((current_value - previous_value) / previous_value) * Decimal("100")
 
-    def _current_kpi_value(self, kpi_name: str, period: date) -> Decimal:
+    def _current_kpi_value(self, kpi_name: str, period: date, cost_center_id: Optional[int]) -> Decimal:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -298,11 +301,12 @@ class PostgreSQLRepository:
                     SELECT kv.valor
                     FROM valores_kpi kv
                     JOIN definiciones_kpi kd ON kd.id = kv.definicion_kpi_id
-                    WHERE kd.nombre = %s AND kv.periodo = %s
+                                        WHERE kd.nombre = %s AND kv.periodo = %s
+                                            AND kv.centro_costo_id IS NOT DISTINCT FROM %s
                     ORDER BY kv.id DESC
                     LIMIT 1
                     """,
-                    (kpi_name, period),
+                                        (kpi_name, period, cost_center_id),
                 )
                 row = cursor.fetchone()
                 if row is None:
@@ -323,71 +327,82 @@ class PostgreSQLRepository:
     def list_cost_centers(self) -> List[CostCenterResponse]:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute("SELECT id, nombre FROM centros_costo ORDER BY nombre")
+                cursor.execute(
+                    """
+                    SELECT DISTINCT c.id, c.nombre
+                    FROM centros_costo c
+                    WHERE EXISTS (SELECT 1 FROM transacciones t WHERE t.centro_costo_id = c.id)
+                       OR EXISTS (SELECT 1 FROM presupuestos p WHERE p.centro_costo_id = c.id)
+                    ORDER BY c.nombre
+                    """
+                )
                 rows = cursor.fetchall()
         return [CostCenterResponse(id=row[0], name=row[1]) for row in rows]
 
-    def forecast(self, horizon_days: int) -> ForecastResponse:
-        rows = []
+    def forecast(
+        self,
+        horizon_days: int,
+        period_from: Optional[date] = None,
+        period_to: Optional[date] = None,
+        cost_center_id: Optional[int] = None,
+    ) -> ForecastResponse:
+        now = datetime.now(timezone.utc)
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
-                demo_enabled = get_settings().enable_demo_data
-                has_recent_training_data = True
-                if not demo_enabled:
-                    cursor.execute(
-                        "SELECT MIN(fecha_transaccion), MAX(fecha_transaccion) FROM transacciones WHERE tipo_fuente = 'banco'::fuente_tipo"
-                    )
-                    first_day, last_day = cursor.fetchone()
-                    has_recent_training_data = (
-                        first_day is not None
-                        and last_day is not None
-                        and (last_day - first_day).days + 1 >= 180
-                        and last_day >= date.today() - timedelta(days=1)
-                    )
-
-                if has_recent_training_data:
+                cursor.execute(
+                    """
+                    SELECT MIN(fecha_transaccion), MAX(fecha_transaccion)
+                    FROM transacciones
+                    WHERE tipo_fuente = 'banco'::fuente_tipo
+                      AND (%s::date IS NULL OR fecha_transaccion >= %s)
+                      AND (%s::date IS NULL OR fecha_transaccion <= %s)
+                      AND (%s::integer IS NULL OR centro_costo_id = %s)
+                    """,
+                    (period_from, period_from, period_to, period_to, cost_center_id, cost_center_id),
+                )
+                first_day, last_day = cursor.fetchone()
+                if first_day is None or last_day is None or (last_day - first_day).days + 1 < 180:
+                    daily_values = []
+                else:
+                    training_start = max(first_day, last_day - timedelta(days=179))
                     cursor.execute(
                         """
-                        SELECT fr.id, fr.nombre_modelo, fr.ejecutado_en, fv.fecha_objetivo, fv.valor_predicho, fv.limite_inferior, fv.limite_superior
-                        FROM ejecuciones_pronostico fr
-                        JOIN valores_pronostico fv ON fv.ejecucion_pronostico_id = fr.id
-                        WHERE fv.fecha_objetivo <= %s
-                          AND (%s OR fr.nombre_modelo = 'regresion_lineal_diaria_v1')
-                          AND (%s OR fr.id = (
-                              SELECT MAX(id) FROM ejecuciones_pronostico WHERE nombre_modelo = 'regresion_lineal_diaria_v1'
-                          ))
-                        ORDER BY fr.ejecutado_en DESC, fv.fecha_objetivo ASC
-                        LIMIT %s
+                        SELECT calendar.day::date, COALESCE(SUM(t.monto), 0)
+                        FROM generate_series(%s::date, %s::date, INTERVAL '1 day') AS calendar(day)
+                        LEFT JOIN transacciones t
+                          ON t.fecha_transaccion = calendar.day::date
+                         AND t.tipo_fuente = 'banco'::fuente_tipo
+                         AND (%s::integer IS NULL OR t.centro_costo_id = %s)
+                        GROUP BY calendar.day
+                        ORDER BY calendar.day
                         """,
-                        (date.today() + timedelta(days=horizon_days), demo_enabled, demo_enabled, horizon_days + 1),
+                        (training_start, last_day, cost_center_id, cost_center_id),
                     )
-                    rows = cursor.fetchall()
+                    daily_values = [(target_date, Decimal(str(amount))) for target_date, amount in cursor.fetchall()]
 
-        if not rows:
+        forecast = calculate_daily_forecast(daily_values, horizon_days) if daily_values else None
+        if forecast is None:
             return ForecastResponse(
                 forecast_run_id=0,
                 model_name="sin_datos",
-                generated_at=datetime.now(timezone.utc),
+                generated_at=now,
                 horizon_days=horizon_days,
                 values=[],
             )
-
-        first_row = rows[0]
-        values = [
-            ForecastPointResponse(
-                target_date=row[3],
-                predicted_value=Decimal(str(row[4])),
-                lower_bound=Decimal(str(row[5])) if row[5] is not None else None,
-                upper_bound=Decimal(str(row[6])) if row[6] is not None else None,
-            )
-            for row in rows
-        ]
         return ForecastResponse(
-            forecast_run_id=first_row[0],
-            model_name=first_row[1],
-            generated_at=first_row[2],
+            forecast_run_id=0,
+            model_name="regresion_lineal_diaria_v1",
+            generated_at=now,
             horizon_days=horizon_days,
-            values=values,
+            values=[
+                ForecastPointResponse(
+                    target_date=point.target_date,
+                    predicted_value=point.predicted_value,
+                    lower_bound=point.lower_bound,
+                    upper_bound=point.upper_bound,
+                )
+                for point in forecast.values
+            ],
         )
 
     def list_alerts(
@@ -395,24 +410,40 @@ class PostgreSQLRepository:
         status: Optional[AlertStatus] = None,
         severity: Optional[AlertSeverity] = None,
         cost_center_id: Optional[int] = None,
+        period_from: Optional[date] = None,
+        period_to: Optional[date] = None,
     ) -> List[AlertResponse]:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 query = """
-                                        SELECT id, cuenta_id, centro_costo_id, periodo, monto_presupuestado, monto_real, desviacion_pct, severidad, estado, detectado_en, responsable_id, atendido_por, atendido_en, comentario
-                                        FROM alertas
-                                        WHERE (%s::text IS NULL OR estado = %s)
-                                            AND (%s::text IS NULL OR severidad = %s)
-                                            AND (%s IS NULL OR centro_costo_id = %s)
-                                            AND (%s OR EXISTS (
-                                                SELECT 1 FROM presupuestos p
-                                                WHERE p.cuenta_id = alertas.cuenta_id
-                                                  AND p.centro_costo_id IS NOT DISTINCT FROM alertas.centro_costo_id
-                                                  AND p.periodo = alertas.periodo
-                                            ))
-                                        ORDER BY desviacion_pct DESC, detectado_en DESC
+                    SELECT id, cuenta_id, centro_costo_id, periodo, monto_presupuestado, monto_real, desviacion_pct, severidad, estado, detectado_en, responsable_id, atendido_por, atendido_en, comentario
+                    FROM alertas
+                    WHERE (%s::text IS NULL OR estado = %s)
+                      AND (%s::text IS NULL OR severidad = %s)
+                      AND (%s::integer IS NULL OR centro_costo_id = %s)
+                      AND (%s::date IS NULL OR periodo >= %s)
+                      AND (%s::date IS NULL OR periodo <= %s)
+                      AND (%s OR EXISTS (
+                          SELECT 1 FROM presupuestos p
+                          WHERE p.cuenta_id = alertas.cuenta_id
+                            AND p.centro_costo_id IS NOT DISTINCT FROM alertas.centro_costo_id
+                            AND p.periodo = alertas.periodo
+                      ))
+                    ORDER BY periodo DESC, desviacion_pct DESC, detectado_en DESC
                 """
-                cursor.execute(query, (status.value if status else None, status.value if status else None, severity.value if severity else None, severity.value if severity else None, cost_center_id, cost_center_id, get_settings().enable_demo_data))
+                cursor.execute(query, (
+                    status.value if status else None,
+                    status.value if status else None,
+                    severity.value if severity else None,
+                    severity.value if severity else None,
+                    cost_center_id,
+                    cost_center_id,
+                    period_from,
+                    period_from,
+                    period_to,
+                    period_to,
+                    get_settings().enable_demo_data,
+                ))
                 rows = cursor.fetchall()
 
         return [

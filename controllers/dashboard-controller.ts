@@ -1,4 +1,4 @@
-import { financialDashboard, type CostCenter, type DashboardFilters, type FinancialDashboard } from "@/models/financial-model";
+import type { CostCenter, DashboardFilters, FinancialDashboard } from "@/models/financial-model";
 import type { Alert } from "@/models/financial-model";
 
 type ApiDashboard = {
@@ -9,8 +9,9 @@ type ApiDashboard = {
     id: number;
     code: string;
     name: string;
-    value: number;
-    change_pct: number | null;
+    value: number | string;
+    period: string;
+    change_pct: number | string | null;
   }>;
   forecast: {
     values: Array<{
@@ -22,7 +23,7 @@ type ApiDashboard = {
   };
   alerts: Array<{
     id: number;
-    deviation_pct: number;
+    deviation_pct: number | string;
     severity: "baja" | "media" | "alta";
     status: Alert["status"];
     period: string;
@@ -52,6 +53,11 @@ function formatMoney(value: number): string {
 
 function mapDashboard(data: ApiDashboard, horizonDays: DashboardFilters["horizonDays"]): FinancialDashboard {
   const monthlyForecast = new Map<string, { projected: number; lower: number; upper: number }>();
+  const latestKpis = new Map<string, ApiDashboard["kpis"][number]>();
+  for (const kpi of data.kpis) {
+    const current = latestKpis.get(kpi.code);
+    if (!current || kpi.period > current.period) latestKpis.set(kpi.code, kpi);
+  }
   for (const point of data.forecast.values.slice(0, horizonDays)) {
     const month = point.target_date.slice(0, 7);
     const values = monthlyForecast.get(month) ?? { projected: 0, lower: 0, upper: 0 };
@@ -63,29 +69,36 @@ function mapDashboard(data: ApiDashboard, horizonDays: DashboardFilters["horizon
   return {
     period: `${new Date(`${data.period_from}T00:00:00`).toLocaleDateString("es-MX")} - ${new Date(`${data.period_to}T00:00:00`).toLocaleDateString("es-MX")}`,
     lastSync: data.last_sync ? new Date(data.last_sync).toLocaleString("es-MX") : "Sin sincronización",
-    kpis: data.kpis.map((kpi, index) => ({
-      label: kpi.name,
-      value: ["flujo_neto_bancario", "ingresos_acumulados"].includes(kpi.code) ? formatMoney(kpi.value) : `${kpi.value.toFixed(1)}%`,
-      change: kpi.change_pct === null ? "Sin variación" : `${kpi.change_pct > 0 ? "+" : ""}${kpi.change_pct}%`,
-      context: kpi.code === "flujo_neto_bancario" ? "flujo neto bancario del mes" : "periodo mensual",
-      trend: kpi.change_pct === null || kpi.change_pct === 0 ? "stable" : kpi.change_pct > 0 ? "up" : "down",
-      tone: (["teal", "blue", "amber", "coral"] as const)[index % 4],
-    })),
+    kpis: [...latestKpis.values()].map((kpi, index) => {
+      const value = Number(kpi.value);
+      const changePct = kpi.change_pct === null ? null : Number(kpi.change_pct);
+      return {
+        label: kpi.name,
+        value: ["flujo_neto_bancario", "ingresos_acumulados"].includes(kpi.code) ? formatMoney(value) : `${value.toFixed(1)}%`,
+        change: changePct === null ? "Sin variación" : `${changePct > 0 ? "+" : ""}${changePct}%`,
+        context: `${kpi.code === "flujo_neto_bancario" ? "flujo neto bancario" : "resultado mensual"} · ${new Date(`${kpi.period}T00:00:00`).toLocaleDateString("es-MX", { month: "short", year: "numeric" })}`,
+        trend: changePct === null || changePct === 0 ? "stable" : changePct > 0 ? "up" : "down",
+        tone: (["teal", "blue", "amber", "coral"] as const)[index % 4],
+      };
+    }),
     forecast: [...monthlyForecast].map(([month, values]) => ({
       month: new Date(`${month}-01T00:00:00`).toLocaleDateString("es-MX", { month: "short" }),
       projected: values.projected / 1000000,
       lower: values.lower / 1000000,
       upper: values.upper / 1000000,
     })),
-    alerts: data.alerts.filter((alert) => alert.status !== "cerrada" && alert.status !== "falsa").map((alert) => ({
-      id: alert.id,
-      title: "Desviación presupuestal",
-      detail: `Periodo ${alert.period}`,
-      amount: `${alert.deviation_pct > 0 ? "+" : ""}${alert.deviation_pct}%`,
-      severity: alert.severity === "alta" ? "high" : "medium",
-      area: "Consolidado",
-      status: alert.status,
-    })),
+    alerts: data.alerts.filter((alert) => alert.status !== "cerrada" && alert.status !== "falsa").map((alert) => {
+      const deviation = Number(alert.deviation_pct);
+      return {
+        id: alert.id,
+        title: "Desviación presupuestal",
+        detail: `Periodo ${alert.period}`,
+        amount: `${deviation > 0 ? "+" : ""}${deviation}%`,
+        severity: alert.severity === "alta" ? "high" : "medium",
+        area: "Consolidado",
+        status: alert.status,
+      };
+    }),
     recommendations: data.recommendations.map((recommendation) => ({
       title: `Recomendación ${recommendation.id}`,
       detail: recommendation.generated_text,
@@ -95,20 +108,14 @@ function mapDashboard(data: ApiDashboard, horizonDays: DashboardFilters["horizon
 }
 
 export async function getFinancialDashboard(filters: DashboardFilters): Promise<FinancialDashboard> {
-  try {
-    const query = new URLSearchParams();
-    if (filters.periodFrom) query.set("period_from", filters.periodFrom);
-    if (filters.periodTo) query.set("period_to", filters.periodTo);
-    if (filters.costCenterId) query.set("cost_center_id", filters.costCenterId);
-    const suffix = query.size > 0 ? `?${query.toString()}` : "";
-    const response = await fetch(`${apiUrl}/dashboard${suffix}`, { credentials: "include", cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Dashboard API returned ${response.status}`);
-    }
-    return mapDashboard((await response.json()) as ApiDashboard, filters.horizonDays);
-  } catch {
-    return financialDashboard;
-  }
+  const query = new URLSearchParams();
+  if (filters.periodFrom) query.set("period_from", filters.periodFrom);
+  if (filters.periodTo) query.set("period_to", filters.periodTo);
+  if (filters.costCenterId) query.set("cost_center_id", filters.costCenterId);
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  const response = await fetch(`${apiUrl}/dashboard${suffix}`, { credentials: "include", cache: "no-store" });
+  if (!response.ok) throw new Error(`Dashboard API returned ${response.status}`);
+  return mapDashboard((await response.json()) as ApiDashboard, filters.horizonDays);
 }
 
 export async function updateAlertStatus(alertId: number, status: Alert["status"], comment: string): Promise<void> {

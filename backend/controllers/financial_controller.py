@@ -129,8 +129,14 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
         return repository.forecast(days)
 
     @router.get("/alerts", response_model=List[AlertResponse], dependencies=[Depends(require_authenticated_user)])
-    def get_alerts(status: Optional[AlertStatus] = None, severity: Optional[AlertSeverity] = None) -> List[AlertResponse]:
-        return repository.list_alerts(status, severity)
+    def get_alerts(
+        status: Optional[AlertStatus] = None,
+        severity: Optional[AlertSeverity] = None,
+        period_from: Optional[date] = None,
+        period_to: Optional[date] = None,
+        cost_center_id: Optional[int] = Query(default=None, gt=0),
+    ) -> List[AlertResponse]:
+        return repository.list_alerts(status, severity, cost_center_id, period_from, period_to)
 
     @router.patch("/alerts/{alert_id}", response_model=AlertResponse, dependencies=[Depends(require_roles("analista", "administrador"))])
     def update_alert(alert_id: int, payload: AlertUpdate, user: Dict[str, Any] = Depends(require_roles("analista", "administrador"))) -> AlertResponse:
@@ -222,8 +228,8 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
             period_to=end,
             last_sync=repository.last_sync,
             kpis=repository.list_kpis(start, end, cost_center_id),
-            forecast=repository.forecast(90),
-            alerts=repository.list_alerts(cost_center_id=cost_center_id),
+            forecast=repository.forecast(90, start, end, cost_center_id),
+            alerts=repository.list_alerts(cost_center_id=cost_center_id, period_from=start, period_to=end),
             recommendations=repository.list_recommendations(),
         )
 

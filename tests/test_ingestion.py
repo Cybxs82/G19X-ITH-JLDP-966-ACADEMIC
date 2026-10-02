@@ -117,9 +117,9 @@ def test_financial_ingestion_preserves_raw_values_and_consolidates(monkeypatch) 
                     (3, "ingresos_acumulados"),
                     (4, "desviacion_presupuestal"),
                 ]
-            elif normalized.startswith("select date_trunc('month', fecha_transaccion)::date,") and "sum(case when monto > 0" in normalized:
-                self.rows = [(date(2026, 1, 1), Decimal("1.23"), Decimal("0"))]
-            elif normalized.startswith("select date_trunc('month', fecha_transaccion)::date, coalesce(sum(monto)"):
+            elif normalized.startswith("select date_trunc('month', fecha_transaccion)::date, centro_costo_id,") and "sum(case when monto > 0" in normalized:
+                self.rows = [(date(2026, 1, 1), 202, Decimal("1.23"), Decimal("0"))]
+            elif normalized.startswith("select date_trunc('month', fecha_transaccion)::date, centro_costo_id, coalesce(sum(monto)"):
                 self.rows = []
             elif normalized.startswith("select periodo, coalesce(sum(monto_presupuestado)"):
                 self.rows = []
@@ -171,7 +171,7 @@ def test_financial_ingestion_preserves_raw_values_and_consolidates(monkeypatch) 
     assert connection.committed
     kpi_writes = [parameters for query, parameters in connection.fake_cursor.statements if "INSERT INTO valores_kpi" in query]
     assert {parameters[0] for parameters in kpi_writes} == {2, 3}
-    assert {Decimal(str(parameters[2])) for parameters in kpi_writes} == {Decimal("100"), Decimal("1.23")}
+    assert {Decimal(str(parameters[3])) for parameters in kpi_writes} == {Decimal("100"), Decimal("1.23")}
 
 
 def test_budget_row_uses_month_period_and_preserves_amount() -> None:
