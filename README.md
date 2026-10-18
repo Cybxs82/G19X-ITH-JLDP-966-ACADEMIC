@@ -68,7 +68,7 @@ Copy-Item .env.example .env
 .\.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000
 ```
 
-La API queda disponible en `http://localhost:8000` y su contrato interactivo en `http://localhost:8000/docs`. Si PostgreSQL no está levantado, FastAPI arranca igualmente y `/health` reporta `database: unavailable`.
+La API queda disponible en `http://localhost:8000` y su contrato interactivo en `http://localhost:8000/docs`. Si PostgreSQL no está levantado, FastAPI arranca igualmente y `/health` reporta `database: unavailable`. Si falta `CFO_DATABASE_URL`, `/health` también indica claramente que se debe definir la URL de conexión en `.env` o en las variables de entorno.
 
 ---
 

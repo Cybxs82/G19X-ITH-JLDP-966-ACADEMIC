@@ -18,7 +18,7 @@ class Settings:
     app_name: str = "CFO Financial Intelligence API"
     api_prefix: str = "/api/v1"
     environment: str = "development"
-    database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/cfo_platform"
+    database_url: str = ""
     database_connect_timeout: int = 3
     allowed_origins: List[str] = ["http://localhost:3000"]
     enable_demo_data: bool = False
@@ -28,7 +28,7 @@ class Settings:
         self.app_name = os.getenv("CFO_APP_NAME", self.app_name)
         self.api_prefix = os.getenv("CFO_API_PREFIX", self.api_prefix)
         self.environment = os.getenv("CFO_ENVIRONMENT", self.environment)
-        self.database_url = os.getenv("CFO_DATABASE_URL", self.database_url)
+        self.database_url = os.getenv("CFO_DATABASE_URL", self.database_url).strip()
         self.database_connect_timeout = int(os.getenv("CFO_DATABASE_CONNECT_TIMEOUT", str(self.database_connect_timeout)))
         self.enable_demo_data = os.getenv("CFO_ENABLE_DEMO_DATA", "false").strip().lower() == "true"
         secure_default = "false" if self.environment == "development" else "true"

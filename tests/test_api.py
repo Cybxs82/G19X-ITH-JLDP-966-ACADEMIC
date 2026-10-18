@@ -6,6 +6,8 @@ from fastapi.testclient import TestClient
 
 from backend.controllers.financial_controller import require_authenticated_user
 from backend.models.schemas import AlertResponse, AlertSeverity, AlertStatus, ForecastResponse
+from backend.infrastructure import database
+from backend.infrastructure.config import Settings
 from backend.infrastructure.database import get_db_connection
 from main import app, repository
 
@@ -28,6 +30,24 @@ def test_health_check() -> None:
     assert response.status_code == 200
     assert response.json()["status"] in {"ok", "degraded"}
     assert response.json()["database"] in {"connected", "unavailable"}
+
+
+def test_health_reports_missing_database_url(monkeypatch) -> None:
+    message = (
+        "Falta configurar CFO_DATABASE_URL. Define una URL de conexión a PostgreSQL "
+        "en el archivo .env o en las variables de entorno."
+    )
+    monkeypatch.delenv("CFO_DATABASE_URL", raising=False)
+    settings = Settings()
+    monkeypatch.setattr(database, "get_settings", lambda: settings)
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "degraded"
+    assert response.json()["database"] == "unavailable"
+    assert response.json()["database_error"] == message
+    assert settings.database_url == ""
 
 
 def test_alert_id_sequence_is_ahead_of_existing_rows() -> None:

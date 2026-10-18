@@ -18,9 +18,15 @@ def _psycopg_url(database_url: str) -> str:
 @contextmanager
 def get_db_connection() -> Generator[Any, None, None]:
     """Abre una conexion por operacion y la cierra siempre al terminar."""
+    settings = get_settings()
+    if not settings.database_url:
+        raise RuntimeError(
+            "Falta configurar CFO_DATABASE_URL. Define una URL de conexión a PostgreSQL "
+            "en el archivo .env o en las variables de entorno."
+        )
+
     import psycopg2
 
-    settings = get_settings()
     connection = psycopg2.connect(_psycopg_url(settings.database_url), connect_timeout=settings.database_connect_timeout)
     try:
         yield connection
