@@ -4,7 +4,7 @@
 ## 0. Resumen ejecutivo
 
 **Qué es:**  
-Plataforma web (MVC) que consolida datos del ERP y del banco, calcula KPIs financieros, proyecta el flujo de caja a 90 días, detecta desviaciones presupuestales y genera un resumen ejecutivo y recomendaciones con IA para el CFO.
+Plataforma web (MVC) que consolida datos del ERP y del banco, calcula KPIs financieros, proyecta el flujo de caja a 90 días, detecta desviaciones presupuestales y genera un resumen ejecutivo y recomendaciones mediante reglas explicables para el CFO, sin IA generativa ni servicios de pago.
 
 **Problema que resuelve:**  
 El CFO depende de reportes manuales y dispersos, con días de retraso para detectar desviaciones y sin capacidad predictiva.
@@ -22,7 +22,7 @@ Reducir el tiempo de preparación de información financiera de días a horas y 
 - KPIs: liquidez, rentabilidad, cumplimiento presupuestal.  
 - Forecast: flujo de caja a 90 días.  
 - Alertas: desviaciones presupuestales.  
-- IA: resumen ejecutivo + recomendaciones basadas en datos calculados.  
+- Resumen ejecutivo y recomendaciones generados por reglas deterministas y explicables a partir de alertas, KPIs y forecast calculados con datos reales; sin IA generativa ni APIs de pago.
 - Dashboard único con filtros por periodo y área.  
 - Seguridad: autenticación propia con PostgreSQL y control de acceso por roles.
 
@@ -36,7 +36,7 @@ Reducir el tiempo de preparación de información financiera de días a horas y 
 
 ## 1. Qué es el proyecto
 
-Plataforma web bajo arquitectura **MVC (Modelo-Vista-Controlador)** que consolida datos financieros (ERP + banco), calcula KPIs clave, proyecta flujo de caja, detecta desviaciones presupuestales y genera, con IA, un resumen ejecutivo y recomendaciones en lenguaje natural para el CFO.
+Plataforma web bajo arquitectura **MVC (Modelo-Vista-Controlador)** que consolida datos financieros (ERP + banco), calcula KPIs clave, proyecta flujo de caja, detecta desviaciones presupuestales y construye un resumen ejecutivo y recomendaciones con reglas explicables a partir de alertas, KPIs y forecast calculados con datos reales.
 
 ---
 
@@ -46,7 +46,7 @@ Plataforma web bajo arquitectura **MVC (Modelo-Vista-Controlador)** que consolid
 - Calcula KPIs de liquidez, rentabilidad y cumplimiento presupuestal.
 - Proyecta el flujo de caja a 30/60/90 días con un modelo predictivo.
 - Detecta y alerta desviaciones presupuestales que superen un umbral configurable.
-- Genera un resumen ejecutivo y recomendaciones en lenguaje natural (Azure OpenAI).
+- Genera un resumen ejecutivo y recomendaciones mediante reglas deterministas, con plantillas explicables y evidencia ligada a las alertas, KPIs y forecast disponibles.
 - Muestra todo en un dashboard único, con acceso diferenciado por rol.
 
 ---
@@ -69,7 +69,7 @@ Plataforma web bajo arquitectura **MVC (Modelo-Vista-Controlador)** que consolid
 El CFO depende de reportes manuales y dispersos entre sistemas, con días de retraso para detectar desviaciones y sin capacidad predictiva.
 
 **Objetivo del producto:**  
-Reducir el tiempo de detección de desviaciones y de generación de proyecciones de días a horas, con recomendaciones accionables generadas por IA.
+Reducir el tiempo de detección de desviaciones y de generación de proyecciones de días a horas, con recomendaciones accionables y explicables generadas por reglas a partir de datos financieros calculados.
 
 **Objetivos medibles (MVP):**
 
@@ -85,7 +85,7 @@ Reducir el tiempo de detección de desviaciones y de generación de proyecciones
 
 | Rol | Qué necesita | Acceso |
 |---|---|---|
-| CFO | Vista ejecutiva y decisiones rápidas | Lectura completa: KPIs, forecast, alertas, recomendaciones IA |
+| CFO | Vista ejecutiva y decisiones rápidas | Lectura completa: KPIs, forecast, alertas y recomendaciones basadas en reglas |
 | Analista financiero | Mantener y validar los datos | Lectura completa + sincronizar datos, atender alertas (revisar, comentar, cerrar, marcar como falsa, asignar responsable) |
 | Administrador | Operar la plataforma | Gestión de usuarios/roles, configuración de umbrales, logs |
 
@@ -105,8 +105,8 @@ Notas:
 | KPIs | Liquidez, rentabilidad, cumplimiento presupuestal (catálogo detallado en sección 13) |
 | Predicción | Forecast de flujo de caja a 90 días, con vistas a 30/60/90 días e intervalo de confianza (sección 14) |
 | Alertas | Desviación presupuestal por encima de umbral configurable, con severidad, estado y responsable (sección 15) |
-| IA generativa | Resumen ejecutivo + recomendaciones en lenguaje natural, con preguntas guiadas predefinidas y controles de confianza (sección 16) |
-| Dashboard | Vista única con KPIs, gráfica de forecast, panel de alertas, filtros por periodo/área aplicables a KPIs, forecast, alertas e IA |
+| Reglas explicables | Resumen ejecutivo y recomendaciones deterministas basados en alertas, KPIs y forecast disponibles, con evidencia y controles de datos insuficientes (sección 16) |
+| Dashboard | Vista única con KPIs, gráfica de forecast, panel de alertas y recomendaciones; filtros por periodo/área aplicables a KPIs, forecast y alertas |
 | Seguridad | Inicio de sesión y creación de cuentas contra PostgreSQL, control de acceso por rol y auditoría de accesos y cambios |
 
 ---
@@ -127,7 +127,7 @@ La aplicación sigue una arquitectura **MVC** desacoplada:
 
 - **Controlador (Controller):**  
   - Python + FastAPI.  
-  - Lógica de negocio, cálculo de KPIs, coordinación del forecasting y conexión con Azure OpenAI.
+  - Lógica de negocio, cálculo de KPIs, coordinación del forecasting y aplicación de reglas explicables para resúmenes y recomendaciones.
 
 - **Infraestructura y seguridad:**  
   - Docker + GitHub Actions (CI/CD).  
@@ -163,7 +163,7 @@ Principios: claridad cognitiva, velocidad de análisis y reducción de carga inf
 - Jerarquía de lectura:  
   - KPIs clave arriba.  
   - Gráficas de tendencia en el centro.  
-  - Alertas e IA a los lados.
+  - Alertas, resumen ejecutivo y recomendaciones basadas en reglas a los lados.
 - Claridad en alertas y tendencias:  
   - Códigos de color (verde/rojo/amarillo).  
   - Sparklines para evolución inmediata de cada KPI.
@@ -202,7 +202,7 @@ Principios: claridad cognitiva, velocidad de análisis y reducción de carga inf
 - Endpoints FastAPI para cálculo de KPIs.
 - Entrenamiento y backtesting del modelo de forecast.
 - Lógica de detección de desviaciones y generación de alertas.
-- Integración con Azure OpenAI para resumen y recomendaciones.
+- Motor determinista de reglas y plantillas explicables para generar resúmenes y recomendaciones desde alertas, KPIs y forecast calculados.
 
 **Salida:** API funcional que devuelve KPIs, forecast, alertas y recomendaciones.
 
@@ -272,7 +272,7 @@ Principios: claridad cognitiva, velocidad de análisis y reducción de carga inf
 **Rendimiento:**
 
 - Dashboard principal carga en **< 3 segundos** (24 meses de histórico, hasta 100 usuarios).
-- API responde al 95 % de solicitudes en **< 500 ms** (excluyendo IA y forecasting pesado).
+- API responde al 95 % de solicitudes en **< 500 ms** (excluyendo forecasting pesado).
 
 **Disponibilidad y resiliencia:**
 
@@ -301,10 +301,11 @@ Principios: claridad cognitiva, velocidad de análisis y reducción de carga inf
 - Logs de acceso, errores y cambios críticos retenidos ≥ 90 días.
 - Métricas de salud del servicio en tiempo real.
 
-**Límites de IA:**
+**Límites de resúmenes y recomendaciones:**
 
-- Uso de Azure OpenAI sujeto a cuota de suscripción.
-- Llamadas a IA no deben bloquear la carga del dashboard; ejecución asíncrona cuando sea necesario.
+- No se utiliza IA generativa ni se realizan llamadas a servicios externos de IA.
+- Las salidas se construyen únicamente con reglas y plantillas versionadas; cada recomendación debe mostrar sus datos de evidencia.
+- Si faltan alertas, KPIs o un forecast válido, el sistema debe indicarlo y no inferir ni inventar resultados.
 
 ---
 
@@ -547,32 +548,33 @@ Cada KPI se define con:
 
 ---
 
-## 16. IA generativa (resumen y recomendaciones)
+## 16. Resumen ejecutivo y recomendaciones con reglas explicables
 
 **Alcance:**
 
-- Generar un **resumen ejecutivo** y **recomendaciones** en lenguaje natural a partir de KPIs, forecast y alertas.  
-- Ofrecer **preguntas guiadas predefinidas** (ej. “¿Cuál es el principal driver de la desviación este mes?”).
+- Generar un **resumen ejecutivo** y **recomendaciones** mediante reglas deterministas y plantillas a partir de alertas activas, KPIs calculados y forecast disponible.
+- Identificar las reglas que se activaron y vincular cada resultado con el periodo y las métricas de origen.
+- No se utiliza IA generativa, LLM, Azure OpenAI ni otro servicio de pago. No se ofrecen preguntas abiertas o guiadas en este MVP.
 
-**Controles de confianza:**
+**Controles de explicabilidad y confianza:**
 
-- La IA solo usa datos ya calculados y autorizados.  
+- Las reglas solo usan datos ya calculados y autorizados.
 - Cada recomendación muestra:
   - Periodo de referencia.  
   - Métricas de origen.  
-- Distingue claramente entre **hechos** e **inferencias**.  
+- Regla que la generó y evidencia asociada.
+- Distingue claramente entre **hechos** e **interpretaciones de regla**.
 - Indica cuando **no hay datos suficientes**.  
-- No inventa cifras ni periodos.  
+- No inventa cifras ni periodos; no genera conclusiones si faltan sus datos requeridos.
 - Las recomendaciones **no ejecutan acciones automáticamente**.
 
-**Auditoría de IA:**
+**Auditoría:**
 
-- Se guarda: prompt (versión), versión del modelo, respuesta generada, fecha y usuario.
+- Se registra la versión de la regla, la evidencia utilizada, la respuesta, la fecha y el usuario cuando corresponda.
 
 **Privacidad:**
 
-- No se usan datos reales en entornos de prueba externos.  
-- Todas las pruebas con IA se hacen en el entorno de Azure de la empresa.
+- Los datos financieros no se envían a proveedores externos de IA.
 
 **Estructura de una recomendación:**
 
@@ -601,10 +603,10 @@ Cada KPI se define con:
 - Como analista, quiero configurar umbrales de desviación por tipo de KPI y área.  
 - Como analista, quiero atender alertas (revisar, comentar, asignar, cerrar, marcar como falsa) desde el dashboard.
 
-**IA:**
+**Resumen y recomendaciones:**
 
-- Como CFO, quiero ver la evidencia numérica detrás de cada recomendación de IA.  
-- Como CFO, quiero hacer preguntas guiadas predefinidas sobre los KPIs y el forecast para entender rápidamente los drivers de los resultados.
+- Como CFO, quiero ver la regla y evidencia numérica detrás de cada recomendación para entender por qué se generó.
+- Como CFO, quiero recibir un resumen y recomendaciones basados en alertas, KPIs y forecast calculados con datos reales, sin depender de servicios de IA de pago.
 
 **General:**
 
@@ -649,7 +651,7 @@ Cada KPI se define con:
 - Banco: acceso a extractos o API con histórico ≥ 24 meses.  
 - CFO y equipo financiero: definición de presupuesto, validación de KPIs y umbrales, datos históricos y contexto de eventos extraordinarios.  
 - Seguridad/TI: definición de política de contraseñas, cifrado, gestión de secretos y protección de sesiones.  
-- Infraestructura: suscripción de Azure (incluido Azure OpenAI), políticas de backup y recuperación.
+- Infraestructura: políticas de backup y recuperación; no se requiere una suscripción de IA generativa.
 
 **Supuestos:**
 

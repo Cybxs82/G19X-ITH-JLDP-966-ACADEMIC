@@ -78,7 +78,7 @@ CFO_SECURE_SESSION_COOKIE=false
 * **Forecast de Flujo de Caja (`/forecast?days=90`):** Proyección a **30, 60 o 90 días** mediante regresión lineal diaria con intervalo predictivo del **80 %** y métrica de error **MAE a 30 días**.
   * *Nota:* Se activa únicamente cuando existen al menos **180 días recientes** de movimientos bancarios (sin datos suficientes, devuelve una serie vacía). Los movimientos netos bancarios no se muestran como saldo de caja final porque aún no se captura el saldo inicial.
 * **Alertas (`/alerts`):** Calcula desviaciones al comparar movimientos contra el presupuesto importado. Permite consultar y atender alertas cambiando su estado o dejando comentarios.
-* **Recomendaciones (`/recommendations` y `/feedback`):** Consulta de recomendaciones generadas y envío de retroalimentación del CFO.
+* **Recomendaciones (`/recommendations` y `/feedback`):** Consulta de recomendaciones y envío de retroalimentación del CFO. El diseño del MVP contempla generar resúmenes y recomendaciones con reglas explicables a partir de alertas, KPIs y forecast calculados con datos reales; no requiere IA generativa ni servicios externos de pago. Cada resultado deberá vincularse con su evidencia y, si faltan datos, indicarlo sin inventar cifras.
 
 ---
 

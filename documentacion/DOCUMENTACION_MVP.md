@@ -8,10 +8,10 @@
 
 ---
 
-## 1. Declaración Fundamental: Cero IA en el MVP
+## 1. Declaración Fundamental: Sin IA generativa en el MVP
 
-> ### ⚠️ PRINCIPIO DE DISEÑO DETERMINISTA Y COSTO CERO
-> **En este MVP, ABSOLUTAMENTE NINGÚN CÁLCULO FINANCIERO, KPI, PROYECCIÓN NI ALERTA ES GENERADO MEDIANTE INTELIGENCIA ARTIFICIAL, REDES NEURONALES O MODELOS DE LENGUAJE (LLMs).**
+> ### PRINCIPIO DE DISEÑO DETERMINISTA, EXPLICABLE Y SIN COSTOS DE IA
+> **Este MVP no utiliza IA generativa, redes neuronales, modelos de lenguaje (LLMs) ni servicios externos de IA.** Los cálculos financieros, KPIs, proyecciones y alertas se generan con métodos deterministas y estadísticos; los resúmenes y recomendaciones se construyen con reglas explicables.
 >
 > Todo el procesamiento descansa de manera exclusiva sobre:
 > 1. **Fórmulas Aritméticas y Contables Deterministas:** Implementadas directamente en código Python y funciones de agregación nativas en PostgreSQL.
@@ -38,6 +38,10 @@
 5. **Rendimiento y Latencia Inmediata:**
    * Las consultas SQL agregadas y las fórmulas matemáticas en Python responden en menos de **50 milisegundos**, sin tiempos de espera de llamadas a APIs externas.
 
+### 1.2 Resúmenes y Recomendaciones Basados en Reglas
+
+El alcance funcional del MVP contempla resúmenes ejecutivos y recomendaciones, pero no mediante IA generativa. Un motor de reglas deterministas aplicará condiciones y plantillas explicables a las **alertas, KPIs y forecast calculados a partir de datos financieros reales**. Cada resultado señalará su periodo, la regla que lo activó y la evidencia numérica correspondiente. Si faltan datos o el forecast no está disponible, el sistema lo indicará y no inventará cifras ni conclusiones. Las recomendaciones serán informativas y no ejecutarán acciones automáticamente.
+
 ---
 
 ## 2. Alcance Funcional del MVP (Ejecución Local)
@@ -49,6 +53,7 @@
 - **Catálogo de KPIs Maestros:** Cálculo determinista de liquidez, rentabilidad, cumplimiento presupuestario y eficiencia operativa.
 - **Proyección de Flujo de Caja (30, 60 y 90 días):** Regresión lineal diaria condicionada a un mínimo estricto de 180 días de histórico bancario, con intervalo de predicción del 80% y validación cruzada MAE a 30 días.
 - **Control Presupuestario y Alertas:** Detección automática de desviaciones sobre el presupuesto mensual por centro de costo y cuenta, con semaforización y flujo de atención (`nueva`, `en_revision`, `cerrada`, `falsa`).
+- **Resumen Ejecutivo y Recomendaciones:** Generación determinista mediante reglas y plantillas explicables a partir de alertas, KPIs y forecast disponibles; sin LLMs, APIs externas ni costos por consumo.
 - **Seguridad y Cuentas Propias:** Autenticación local respaldada al 100% por PostgreSQL con control de roles (`cfo`, `analista`, `administrador`), sesiones seguras revocables y hashes Argon2id/bcrypt.
 
 ### 2.2 Capacidades Fuera del Alcance (Fuera de este MVP)
