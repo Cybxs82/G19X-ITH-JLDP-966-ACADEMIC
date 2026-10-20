@@ -32,7 +32,7 @@ CFO_SECURE_SESSION_COOKIE=false
 
 1. **Encender el Backend (FastAPI en puerto `8000`):**
    ```powershell
-   py -3.8 -m venv .venv
+   py -3.11 -m venv .venv
    .\.venv\Scripts\python.exe -m pip install -r requirements.txt
    .\.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000
    ```

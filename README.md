@@ -57,12 +57,12 @@ El punto de entrada es [`main.py`](main.py). La API expone documentación OpenAP
 
 El MVP requiere importar movimientos bancarios y presupuestos para calcular desviaciones. El forecast usa regresión lineal diaria, se habilita con al menos 180 días recientes de movimientos bancarios y reporta un intervalo predictivo del 80 % y MAE de backtest a 30 días. Sin datos suficientes, la API devuelve una serie vacía. Los movimientos netos bancarios no se presentan como saldo de caja porque aún no se captura el saldo inicial.
 
-La conexión PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /health`. La Fase 2 conserva el archivo recibido en `datos_temporales_erp` o `datos_temporales_banco`, normaliza cuentas, centros de costo y transacciones, registra filas rechazadas en `registros_sincronizacion_rechazados` y recalcula los KPIs desde `transacciones`. Si no hay transacciones cargadas, la aplicación mantiene el seed demo como fallback de desarrollo. No se guardan credenciales en el código.
+La conexión PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /health`. La Fase 2 conserva el archivo recibido en `datos_temporales_erp` o `datos_temporales_banco`, normaliza cuentas, centros de costo y transacciones, registra filas rechazadas en `registros_sincronizacion_rechazados` y recalcula los KPIs desde `transacciones`. La carga del seed demo está desactivada por omisión (`CFO_ENABLE_DEMO_DATA=false`); puede habilitarse explícitamente para desarrollo. No se guardan credenciales en el código.
 
 ### Ejecutar la API
 
 ```powershell
-py -3.8 -m venv .venv
+py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 Copy-Item .env.example .env
 .\.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000

@@ -172,7 +172,7 @@ class PostgreSQLRepository:
                         'Revisar la renovación de proveedores de tecnología.',
                         'Resumen ejecutivo del periodo financiero actual.',
                         'Revisar la renovacion de proveedores de tecnologia: el gasto supera el presupuesto y concentra la mayor desviacion mensual.',
-                        'gpt-4o-mini',
+                        'demo',
                         now,
                         date.today().replace(day=1),
                         'Ciclo de cobranza prolongado.',
@@ -180,7 +180,7 @@ class PostgreSQLRepository:
                         'Acelerar la cobranza de cuentas por cobrar.',
                         'Resumen ejecutivo del periodo financiero actual.',
                         'Acelerar la cobranza de cuentas por cobrar para liberar caja durante el proximo trimestre.',
-                        'gpt-4o-mini',
+                        'demo',
                         now,
                     ),
                 )
