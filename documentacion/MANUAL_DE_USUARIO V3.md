@@ -74,11 +74,13 @@ CFO_SECURE_SESSION_COOKIE=false
 
 ## 📊 4. Uso de las Vistas del Sistema
 
-* **Dashboard (`/dashboard` y `/kpis`):** Muestra el resumen de KPIs recalculados desde la tabla `transacciones` (filtrables por periodo), estado de alertas y recomendaciones.
-* **Forecast de Flujo de Caja (`/forecast?days=90`):** Proyección a **30, 60 o 90 días** mediante regresión lineal diaria con intervalo predictivo del **80 %** y métrica de error **MAE a 30 días**.
-  * *Nota:* Se activa únicamente cuando existen al menos **180 días recientes** de movimientos bancarios (sin datos suficientes, devuelve una serie vacía). Los movimientos netos bancarios no se muestran como saldo de caja final porque aún no se captura el saldo inicial.
-* **Alertas (`/alerts`):** Calcula desviaciones al comparar movimientos contra el presupuesto importado. Permite consultar y atender alertas cambiando su estado o dejando comentarios.
-* **Recomendaciones (`/recommendations` y `/feedback`):** Consulta de recomendaciones y envío de retroalimentación del CFO. El diseño del MVP contempla generar resúmenes y recomendaciones con reglas explicables a partir de alertas, KPIs y forecast calculados con datos reales; no requiere IA generativa ni servicios externos de pago. Cada resultado deberá vincularse con su evidencia y, si faltan datos, indicarlo sin inventar cifras.
+* **Dashboard (`/`):** Muestra los KPIs calculados desde `transacciones`, el estado de alertas y el forecast. `/kpis` no es una ruta de página; el endpoint de datos es `GET /api/v1/kpis`.
+* **Forecast (`GET /api/v1/forecast?days=90`):** Proyecta flujo neto bancario a **30, 60 o 90 días** mediante regresión lineal diaria, con intervalo predictivo del **80 %**. El MAE de backtest se calcula internamente y no forma parte de la respuesta de este endpoint.
+  * *Nota:* Requiere al menos **180 días calendario** entre la primera y la última transacción bancaria. Si no hay datos suficientes, devuelve una serie vacía. El flujo neto no es saldo de caja final porque no se captura el saldo inicial.
+* **Alertas (`GET /api/v1/alerts`):** Calcula desviaciones al comparar movimientos con el presupuesto importado. Se genera alerta desde una desviación absoluta de **10 %**; es media entre **10 % y menos de 20 %**, y alta desde **20 %**. Permite cambiar el estado y añadir comentarios con `PATCH /api/v1/alerts/{id}`.
+* **Recomendaciones y retroalimentación (API):** `POST /api/v1/recommendations/generate` evalúa reglas deterministas y guarda sus resultados y evidencia; `GET /api/v1/recommendations` consulta registros, y `POST /api/v1/feedback` registra retroalimentación. Importante: en la configuración actual, el endpoint GET devuelve una lista vacía con `CFO_ENABLE_DEMO_DATA=false`; no actives el modo demo en una base con datos reales, pues la inicialización de demo puede borrar filas financieras. Si faltan datos, el sistema indica su ausencia sin inventar cifras.
+
+Para conocer el uso de IA como herramienta de apoyo durante el desarrollo y confirmar que no se utiliza en tiempo de ejecución, consulta `DOCUMENTACION_MVP.md`, sección 1.
 
 ---
 

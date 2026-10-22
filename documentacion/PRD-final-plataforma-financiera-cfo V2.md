@@ -1,5 +1,6 @@
-```markdown
 # PRD — Plataforma de Inteligencia Financiera para CFO (v3)
+
+> **Estado del documento:** Este PRD conserva objetivos de producto a futuro. El MVP local implementado y sus limitaciones se describen en `DOCUMENTACION_MVP.md`; las funciones planeadas que aún no existen en el código no deben interpretarse como entregadas.
 
 ## 0. Resumen ejecutivo
 
@@ -17,7 +18,7 @@ Reducir el tiempo de preparación de información financiera de días a horas y 
 - Analista financiero: mantener y validar datos, atender alertas.  
 - Administrador: operar la plataforma (usuarios, umbrales, configuración).
 
-**Alcance MVP:**  
+**Alcance objetivo del producto:**
 - Integración: 1 ERP + 1 banco.  
 - KPIs: liquidez, rentabilidad, cumplimiento presupuestal.  
 - Forecast: flujo de caja a 90 días.  
@@ -26,7 +27,7 @@ Reducir el tiempo de preparación de información financiera de días a horas y 
 - Dashboard único con filtros por periodo y área.  
 - Seguridad: autenticación propia con PostgreSQL y control de acceso por roles.
 
-**Criterios de éxito clave:**  
+**Criterios de éxito objetivo (pendientes de validación en el MVP local):**
 - Reducir preparación de reportes de 2 días a < 2 horas.  
 - ≥ 95 % de cargas diarias completadas antes de la hora objetivo.  
 - MAE del forecast por debajo del objetivo acordado.  
@@ -42,7 +43,7 @@ Plataforma web bajo arquitectura **MVC (Modelo-Vista-Controlador)** que consolid
 
 ## 2. Qué hace (capacidades principales)
 
-- Extrae y consolida datos financieros de forma automatizada (sin captura manual).
+- El producto objetivo extrae y consolida datos financieros de forma automatizada; el MVP actual importa archivos manualmente.
 - Calcula KPIs de liquidez, rentabilidad y cumplimiento presupuestal.
 - Proyecta el flujo de caja a 30/60/90 días con un modelo predictivo.
 - Detecta y alerta desviaciones presupuestales que superen un umbral configurable.
@@ -71,7 +72,7 @@ El CFO depende de reportes manuales y dispersos entre sistemas, con días de ret
 **Objetivo del producto:**  
 Reducir el tiempo de detección de desviaciones y de generación de proyecciones de días a horas, con recomendaciones accionables y explicables generadas por reglas a partir de datos financieros calculados.
 
-**Objetivos medibles (MVP):**
+**Objetivos medibles objetivo (pendientes de validar; no son resultados alcanzados por el MVP local):**
 
 - Reducir la preparación del reporte financiero de **2 días a menos de 2 horas**.
 - Actualizar el **95 % de las cargas diarias antes de la hora objetivo** (ej. 8:00 a. m. local).
@@ -97,16 +98,16 @@ Notas:
 
 ---
 
-## 6. Alcance funcional (por módulo)
+## 6. Alcance funcional objetivo (por módulo)
 
-| Módulo | Alcance de este PRD |
+| Módulo | Alcance objetivo del producto |
 |---|---|
-| Datos | ERP + 1 banco, actualización automática (mínimo diaria, horario y zona horaria definidos en Fase 1) |
+| Datos | ERP + 1 banco, actualización automática (mínimo diaria, horario y zona horaria definidos en el diseño); en el MVP local se importan archivos manualmente |
 | KPIs | Liquidez, rentabilidad, cumplimiento presupuestal (catálogo detallado en sección 13) |
 | Predicción | Forecast de flujo de caja a 90 días, con vistas a 30/60/90 días e intervalo de confianza (sección 14) |
 | Alertas | Desviación presupuestal por encima de umbral configurable, con severidad, estado y responsable (sección 15) |
 | Reglas explicables | Resumen ejecutivo y recomendaciones deterministas basados en alertas, KPIs y forecast disponibles, con evidencia y controles de datos insuficientes (sección 16) |
-| Dashboard | Vista única con KPIs, gráfica de forecast, panel de alertas y recomendaciones; filtros por periodo/área aplicables a KPIs, forecast y alertas |
+| Dashboard | Objetivo: vista única con KPIs, forecast, alertas y recomendaciones. En el MVP actual la UI no está conectada para mostrar las recomendaciones generadas por reglas |
 | Seguridad | Inicio de sesión y creación de cuentas contra PostgreSQL, control de acceso por rol y auditoría de accesos y cambios |
 
 ---
@@ -116,12 +117,12 @@ Notas:
 La aplicación sigue una arquitectura **MVC** desacoplada:
 
 - **Modelo (Model):**  
-  - PostgreSQL + SQLAlchemy/ORM.  
+  - PostgreSQL; el backend actual usa consultas SQL con `psycopg2` y no SQLAlchemy/ORM.
   - Entidades: KPIs, Staging, Usuarios, Credenciales, Sesiones, Histórico Financiero.  
   - Lógica de persistencia, relaciones y consultas analíticas optimizadas.
 
 - **Vista (View):**  
-  - React (SPA).  
+  - Next.js (App Router) con React; no es una SPA React independiente.
   - Dashboards interactivos, componentes gráficos y alertas tras cada sincronización.  
   - Indicador visible de “Datos actualizados el [fecha/hora]”.
 
@@ -130,7 +131,7 @@ La aplicación sigue una arquitectura **MVC** desacoplada:
   - Lógica de negocio, cálculo de KPIs, coordinación del forecasting y aplicación de reglas explicables para resúmenes y recomendaciones.
 
 - **Infraestructura y seguridad:**  
-  - Docker + GitHub Actions (CI/CD).  
+  - Docker + GitHub Actions (CI/CD) son objetivos de despliegue futuro; no están configurados en el MVP local.
   - PostgreSQL como fuente única de usuarios, credenciales, sesiones y roles.
   - Contraseñas almacenadas únicamente como hashes seguros; nunca se persisten contraseñas en texto plano.
 
@@ -154,7 +155,7 @@ La autenticación de la plataforma será propia y estará respaldada completamen
 
 ---
 
-## 8. Diseño de páginas y UX/UI
+## 8. Diseño objetivo de páginas y UX/UI
 
 Principios: claridad cognitiva, velocidad de análisis y reducción de carga informativa.
 
@@ -180,71 +181,26 @@ Principios: claridad cognitiva, velocidad de análisis y reducción de carga inf
 
 ## 9. Fases del proyecto
 
-### Fase 1 — Descubrimiento y diseño (2–3 semanas) XXXXXXXXXXX
+El cronograma académico del proyecto contempla las diez fases siguientes. Este cronograma describe actividades del proyecto, no implica que todas las capacidades productivas de este PRD estén implementadas.
 
-- Validar con el CFO catálogo de KPIs y umbrales de alerta.
-- Mapeo técnico de fuentes (ERP y banco: API, archivos, BD).
-- Diseñar wireframes y modelo de datos (tablas staging y consolidadas).
-- Diseñar endpoints de la API.
+| Fase | Actividad | Periodo |
+|---|---|---|
+| 1 | Detección de necesidades y áreas de innovación | 24/08/2026–28/08/2026 |
+| 2 | Desarrollo de propuesta y negociación de la solución | 31/08/2026–04/09/2026 |
+| 3 | Diseño de arquitectura de software e inteligencia artificial | 07/09/2026–18/09/2026 |
+| 4 | Planificación operativa (plan de trabajo) | 21/09/2026–25/09/2026 |
+| 5 | Desarrollo de la solución (backend, frontend, IA e integraciones) | 28/09/2026–30/10/2026 |
+| 6 | Pruebas de calidad (QA y validación funcional) | 02/11/2026–13/11/2026 |
+| 7 | Documentación técnica y de usuario | 31/08/2026–20/11/2026 |
+| 8 | Diseño del esquema de mantenimiento y soporte multinivel | 19/10/2026–13/11/2026 |
+| 9 | Capacitación a usuarios y entrega final | 16/11/2026–27/11/2026 |
+| 10 | Evaluación post-implementación y cierre técnico | 30/11/2026–24/12/2026 |
 
-**Salida:** Arquitectura MVC + prototipo UX/UI + diccionario de datos + catálogo de KPIs aprobado + objetivos medibles.
-
-### Fase 2 — Integración de datos (2–3 semanas) XXXXXXXXXXXXXX
-
-- Scripts de extracción del ERP y del banco (Python).
-- Normalización y carga a PostgreSQL (staging → consolidado).
-- Programación de ejecución automática y validación de calidad.
-
-**Salida:** Pipeline de datos automático con métricas de calidad y registros de errores.
-
-### Fase 3 — Backend, KPIs y forecasting (3–4 semanas)
-
-- Endpoints FastAPI para cálculo de KPIs.
-- Entrenamiento y backtesting del modelo de forecast.
-- Lógica de detección de desviaciones y generación de alertas.
-- Motor determinista de reglas y plantillas explicables para generar resúmenes y recomendaciones desde alertas, KPIs y forecast calculados.
-
-**Salida:** API funcional que devuelve KPIs, forecast, alertas y recomendaciones.
-
-### Fase 4 — Dashboard / Capa de vista (2–3 semanas)
-
-- Implementación del dashboard en React según UX/UI aprobada.
-- Conexión a endpoints de la API.
-- Filtros interactivos por periodo/área.
-- Vistas diferenciadas por rol.
-
-**Salida:** Dashboard funcional con datos reales y UX validada.
-
-### Fase 5 — Seguridad y despliegue (1–2 semanas)
-
-- Implementación del inicio de sesión y creación de cuentas respaldados por PostgreSQL.
-- Hash seguro de contraseñas, expiración y revocación de sesiones.
-- Roles almacenados en PostgreSQL y protección de endpoints mediante autorización en backend.
-- Auditoría de accesos, intentos fallidos, altas, bajas y cambios de permisos.
-- Contenerización con Docker.
-- CI/CD con GitHub Actions.
-
-**Salida:** Plataforma desplegada en productivo con acceso controlado.
-
-### Fase 6 — Validación (2 semanas)
-
-- Pruebas funcionales y de usabilidad.
-- Pruebas de seguridad.
-- UAT con CFO y analista (KPIs, forecast, recomendaciones).
-
-**Salida:** Reporte de pruebas + ajustes aprobados por el CFO.
-
-### Fase 7 — Documentación y entrega (1 semana)
-
-- Documentación técnica (arquitectura, API, modelo de datos).
-- Manual de usuario por rol.
-- Plan de soporte.
-
-**Salida:** Plataforma en producción + documentación completa.
+Las fases 7 y 8 se ejecutan en paralelo con el desarrollo, de acuerdo con el cronograma del proyecto.
 
 ---
 
-## 10. Criterios de éxito (revisados)
+## 10. Criterios de éxito objetivo (pendientes de validación)
 
 - Forecast a 90 días con **MAE** inferior al objetivo acordado (ej. < 10 % del flujo neto promedio mensual).
 - Alertas de desviación con:
@@ -267,7 +223,9 @@ Principios: claridad cognitiva, velocidad de análisis y reducción de carga inf
 
 ---
 
-## 12. Requisitos no funcionales
+## 12. Requisitos no funcionales objetivo y estado del MVP
+
+Los valores siguientes son metas para una futura versión desplegada. El MVP actual opera localmente y no cuenta con mediciones ni validación de capacidad productiva; no se deben presentar estas metas como resultados alcanzados.
 
 **Rendimiento:**
 
@@ -303,13 +261,15 @@ Principios: claridad cognitiva, velocidad de análisis y reducción de carga inf
 
 **Límites de resúmenes y recomendaciones:**
 
-- No se utiliza IA generativa ni se realizan llamadas a servicios externos de IA.
+- En tiempo de ejecución no se utiliza IA generativa ni se realizan llamadas a servicios externos de IA.
 - Las salidas se construyen únicamente con reglas y plantillas versionadas; cada recomendación debe mostrar sus datos de evidencia.
 - Si faltan alertas, KPIs o un forecast válido, el sistema debe indicarlo y no inferir ni inventar resultados.
 
 ---
 
-## 13. Catálogo de KPIs (estructura y ejemplos concretos)
+## 13. Catálogo objetivo de KPIs (estructura y ejemplos concretos)
+
+Este catálogo expresa el diseño financiero objetivo, no implica que todos estos KPIs estén implementados. El estado de implementación y los cuatro indicadores disponibles en el MVP se especifican en `DOCUMENTACION_MVP.md`, sección 3.
 
 Cada KPI se define con:
 
@@ -467,42 +427,43 @@ Cada KPI se define con:
 
 ---
 
-## 14. Especificación del forecast (flujo de caja a 90 días)
+## 14. Especificación del forecast
 
 **Qué se pronostica:**
 
-- Flujo neto diario (entradas – salidas) y saldo proyectado de caja.
+- **MVP implementado:** flujo neto bancario diario (entradas – salidas). No representa el saldo proyectado de caja porque el sistema no captura ni incorpora un saldo inicial.
+- La proyección del saldo de caja es una capacidad objetivo futura, condicionada a disponer de saldos iniciales y movimientos proyectados.
 
 **Horizonte y granularidad:**
 
 - Horizonte: **90 días** desde la fecha de corte.  
 - Granularidad: **diaria**, con vistas agregadas a 30, 60 y 90 días.
 
-**Modelo inicial:**
+**Modelo del MVP implementado:**
 
-- Modelo estadístico (ARIMA / Prophet / regresión con estacionalidad semanal y mensual) entrenado con ≥ 12 meses de histórico.  
-- Variables: histórico de entradas, salidas y saldo; opcionalmente indicadores internos (ciclo de facturación, estacionalidad).
+- Regresión lineal diaria por mínimos cuadrados ordinarios sobre hasta 180 días de observaciones recientes.
+- Se requiere un mínimo de 180 días calendario entre la primera y última transacción bancaria. Con menos, el forecast se desactiva.
+- No se implementan ARIMA, Prophet, estacionalidad semanal/mensual ni variables de saldo; quedan como alternativas futuras, no como parte del comportamiento actual.
 
-**Eventos extraordinarios:**
+**Eventos extraordinarios (objetivo futuro):**
 
-- Movimientos atípicos se marcarán y podrán excluirse del entrenamiento bajo supervisión del analista.
+- El marcado y exclusión supervisada de movimientos atípicos no está implementado.
 
 **Métrica de evaluación:**
 
-- **MAE** del flujo neto a 30 días como métrica principal.  
-- Secundarias: RMSE y MAPE para análisis interno.
+- Se calcula MAE de backtest usando los últimos 30 valores observados como holdout; RMSE y MAPE no se calculan actualmente.
 
 **Backtesting:**
 
-- Sobre los últimos **6–12 meses**, simulando predicciones a 30/60/90 días.
+- El backtest implementado usa 30 observaciones diarias de holdout para validar la regresión lineal.
 
 **Intervalo de confianza:**
 
-- Se mostrará un intervalo (ej. 80 %) alrededor de la proyección, explicado como “rango probable”.
+- El MVP implementado calcula intervalo analítico del 80 % alrededor del flujo neto pronosticado; no representa un intervalo del saldo de caja.
 
 **Falta de datos históricos:**
 
-- Si hay < 6 meses de histórico, el forecast se desactiva con mensaje explicativo.
+- Si hay menos de 180 días de histórico, la API devuelve un forecast vacío con `model_name = "sin_datos"`.
 
 ---
 
@@ -510,7 +471,7 @@ Cada KPI se define con:
 
 **Tipo de alerta (MVP):**
 
-- Desviación presupuestal por encima de umbral configurable.
+- Desviación presupuestal por encima de los límites fijos descritos abajo; la configuración dinámica es objetivo futuro.
 
 **Estructura de una alerta:**
 
@@ -525,13 +486,16 @@ Cada KPI se define con:
 - Estado (nueva, en revisión, cerrada, falsa).  
 - Responsable asignado.
 
-**Reglas de generación:**
+**Reglas de generación implementadas en el MVP:**
 
-- Se ejecutan tras cada sincronización diaria.  
-- Se generan si la desviación supera el umbral (ej. ±10 % y ±20 % para severidad media y alta).  
+- Se recalculan después de la ingesta manual de datos y presupuestos; no existe una sincronización diaria automática.
+- Se genera alerta cuando la desviación absoluta es `>= 10 %`; severidad media para `10 % <= |desviación| < 20 %`, alta para `|desviación| >= 20 %`.
+- El código no asigna severidad baja a desviaciones por debajo del 10 %: no genera alerta en ese rango.
+- La fórmula es `(monto_real - monto_presupuestado) / monto_presupuestado * 100`; las desviaciones positivas y negativas se evalúan con valor absoluto.
+- Aunque existe la tabla `umbrales_alerta`, la ingesta actual usa límites fijos de 10 % y 20 %; la configuración dinámica queda pendiente.
 - Deduplicación por periodo + área + concepto; se actualiza la alerta existente si persiste.
 
-**Métricas de alertas:**
+**Métricas objetivo de alertas (pendientes de medición):**
 
 - Precisión de alertas.  
 - Tasa de falsos positivos.  
@@ -553,8 +517,9 @@ Cada KPI se define con:
 **Alcance:**
 
 - Generar un **resumen ejecutivo** y **recomendaciones** mediante reglas deterministas y plantillas a partir de alertas activas, KPIs calculados y forecast disponible.
+- Declaración de uso de IA durante el desarrollo: consultar `DOCUMENTACION_MVP.md`, sección 1. En ejecución, las recomendaciones se generan con reglas y plantillas, sin IA.
 - Identificar las reglas que se activaron y vincular cada resultado con el periodo y las métricas de origen.
-- No se utiliza IA generativa, LLM, Azure OpenAI ni otro servicio de pago. No se ofrecen preguntas abiertas o guiadas en este MVP.
+- En tiempo de ejecución no se utiliza IA generativa, LLM, Azure OpenAI ni otro servicio de pago. No se ofrecen preguntas abiertas o guiadas en este MVP.
 
 **Controles de explicabilidad y confianza:**
 
@@ -620,26 +585,24 @@ Cada KPI se define con:
 
 ## 18. MVP vs. post-MVP
 
-**MVP imprescindible:**
+**MVP local implementado:**
 
-- 1 integración ERP + 1 banco.  
-- Carga diaria automatizada.  
-- Catálogo limitado de KPIs (liquidez, rentabilidad, desviación presupuestal).  
-- Forecast básico de flujo de caja a 90 días.  
-- Alertas de desviación presupuestal.  
-- Dashboard CFO.  
-- Autenticación PostgreSQL y 3 roles.  
-- Auditoría básica y manejo de errores.
+- Ingesta manual de archivos de ERP, presupuesto y banco; no hay conectores ni sincronización automática diaria.
+- Cuatro KPIs calculados: flujo neto bancario, margen operativo, ingresos acumulados y desviación presupuestal.
+- Forecast lineal diario del flujo neto bancario a 90 días, con mínimo de 180 días de histórico; no proyecta saldo de caja.
+- Alertas presupuestarias con límites fijos de 10 % y 20 %.
+- Aplicación web Next.js y API FastAPI con autenticación PostgreSQL y roles.
+- Generación determinista de recomendaciones mediante endpoint autenticado; el dashboard aún no las muestra en su interfaz, y la lectura de recomendaciones está condicionada por `CFO_ENABLE_DEMO_DATA`.
 
-**Post-MVP:**
+**Pendiente para una versión futura:**
 
-- Preguntas guiadas avanzadas.  
-- Recomendaciones más sofisticadas.  
-- Más fuentes (CRM, otros bancos, sistemas internos).  
-- Escenarios “qué pasaría si”.  
-- RAG sobre documentos financieros.  
-- Multiempresa.  
-- Rol de auditor.
+- Integración automática con ERP y banco, cargas programadas y operación sin importación manual.
+- Catálogo financiero completo (saldo, runway, razones, margen neto, ROE, ROA y eficiencia).
+- Forecast del saldo de caja, saldo inicial, estacionalidad y evaluación de modelos alternativos.
+- Umbrales de alerta configurables desde la aplicación.
+- Conectar las recomendaciones generadas al endpoint de lectura y al dashboard sin activar la carga de datos demo.
+- Docker, CI/CD, despliegue productivo, objetivos de disponibilidad/capacidad y respaldos operativos.
+- Preguntas guiadas, más fuentes, escenarios, RAG, multiempresa y rol de auditor.
 
 ---
 
@@ -653,9 +616,8 @@ Cada KPI se define con:
 - Seguridad/TI: definición de política de contraseñas, cifrado, gestión de secretos y protección de sesiones.  
 - Infraestructura: políticas de backup y recuperación; no se requiere una suscripción de IA generativa.
 
-**Supuestos:**
+**Supuestos objetivo para una versión futura (no condiciones del MVP local):**
 
 - ERP y banco tienen disponibilidad suficiente para extracciones diarias.  
-- Existe histórico mínimo de **12 meses** para entrenar el forecast.  
+- Existe histórico mínimo de **12 meses** para análisis ampliado del forecast; el MVP local requiere 180 días para calcular la regresión.
 - CFO y analista estarán disponibles para UAT y validación.
-```

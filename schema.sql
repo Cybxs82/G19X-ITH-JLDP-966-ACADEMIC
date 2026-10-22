@@ -9,7 +9,7 @@
 --   4. KPIs
 --   5. Forecasting
 --   6. Alertas
---   7. IA generativa (recomendaciones y feedback)
+--   7. Reglas explicables (recomendaciones y feedback)
 --   8. Auditoría
 -- ============================================================================
 
@@ -291,13 +291,13 @@ CREATE TABLE recomendaciones_ia (
     recomendacion_texto TEXT NOT NULL,          -- acción concreta recomendada
     prioridad           prioridad_recomendacion NOT NULL DEFAULT 'media',
     evidencia           JSONB,                  -- referencias a valores_kpi.id / alertas.id que sustentan la recomendación
-    version_prompt      VARCHAR(50) NOT NULL,   -- versión de las reglas explicables
-    prompt_utilizado    TEXT NOT NULL,      -- regla y plantilla determinista usada para trazabilidad
-    texto_generado      TEXT NOT NULL,      -- texto generado por la regla, sin IA generativa
-    nombre_modelo       VARCHAR(100) NOT NULL,   -- identificador del generador, por ejemplo 'reglas-v1'
+    version_prompt      VARCHAR(50) NOT NULL,   -- nombre legado: versión de las reglas, por ejemplo 'reglas-v1'
+    prompt_utilizado    TEXT NOT NULL,          -- nombre legado: regla y plantilla determinista usada
+    texto_generado      TEXT NOT NULL,          -- nombre legado: texto resultante de la regla
+    nombre_modelo       VARCHAR(100) NOT NULL,   -- identificador del motor de reglas, por ejemplo 'reglas-v1'
     generado_en         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE recomendaciones_ia IS 'Historial de recomendaciones generadas por reglas explicables: situación, impacto, recomendación, prioridad y evidencia (sección 16 del PRD), con versión de reglas, usuario y fecha para trazabilidad. El nombre de la tabla se conserva por compatibilidad.';
+COMMENT ON TABLE recomendaciones_ia IS 'Historial de recomendaciones generadas por reglas explicables: situación, impacto, recomendación, prioridad y evidencia, con versión de reglas, usuario y fecha para trazabilidad. Se conserva el nombre legado de la tabla para mantener compatibilidad con el código y los datos existentes.';
 
 CREATE TABLE retroalimentacion_ia (
     id                  BIGSERIAL PRIMARY KEY,
@@ -307,7 +307,7 @@ CREATE TABLE retroalimentacion_ia (
     comentario          TEXT,
     creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE retroalimentacion_ia IS 'Feedback del CFO sobre cada recomendación, para medir su utilidad y ajustar las reglas explicables.';
+COMMENT ON TABLE retroalimentacion_ia IS 'Retroalimentación del CFO sobre cada recomendación para medir su utilidad y ajustar las reglas explicables. Se conserva el nombre legado por compatibilidad.';
 
 -- ============================================================================
 -- 8. AUDITORÍA
