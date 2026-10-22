@@ -1,12 +1,15 @@
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+import json
+from typing import Any, Dict, List, Optional, Tuple
+from uuid import UUID
 
 from ..infrastructure.database import get_db_connection
 from .forecast_service import DailyForecast, calculate_daily_forecast
 
 
+RULES_VERSION = "reglas-v1"
 FORECAST_CHECK_DAYS = (30, 60, 90)
 TRACKED_KPI_CODES = (
     "flujo_neto_bancario",
@@ -15,7 +18,9 @@ TRACKED_KPI_CODES = (
 )
 
 
-def _load_open_alerts(cursor: Any) -> List[Dict[str, Any]]:
+def _load_open_alerts(cursor: Any) -> Tuple[List[Dict[str, Any]], bool]:
+    cursor.execute("SELECT EXISTS (SELECT 1 FROM alertas)")
+    has_alert_data = cursor.fetchone()[0]
     cursor.execute(
         """
         SELECT id, periodo, centro_costo_id, desviacion_pct, severidad,
@@ -25,7 +30,7 @@ def _load_open_alerts(cursor: Any) -> List[Dict[str, Any]]:
         ORDER BY periodo DESC, id
         """,
     )
-    return [
+    alerts = [
         {
             "id": row[0],
             "periodo": row[1],
@@ -37,6 +42,7 @@ def _load_open_alerts(cursor: Any) -> List[Dict[str, Any]]:
         }
         for row in cursor.fetchall()
     ]
+    return alerts, has_alert_data
 
 
 def _load_latest_kpis(cursor: Any) -> List[Dict[str, Any]]:
@@ -63,7 +69,7 @@ def _load_latest_kpis(cursor: Any) -> List[Dict[str, Any]]:
     ]
 
 
-def _load_forecast(cursor: Any) -> Optional[DailyForecast]:
+def _load_forecast(cursor: Any) -> Tuple[Optional[DailyForecast], Optional[str]]:
     cursor.execute(
         """
         SELECT MIN(fecha_transaccion), MAX(fecha_transaccion)
@@ -72,8 +78,11 @@ def _load_forecast(cursor: Any) -> Optional[DailyForecast]:
         """
     )
     first_day, last_day = cursor.fetchone()
-    if first_day is None or last_day is None or (last_day - first_day).days + 1 < 180:
-        return None
+    if first_day is None or last_day is None:
+        return None, "No hay histórico de transacciones bancarias."
+    training_days = (last_day - first_day).days + 1
+    if training_days < 180:
+        return None, "Hay %s días de histórico; se requieren al menos 180." % training_days
 
     training_start = max(first_day, last_day - timedelta(days=179))
     cursor.execute(
@@ -92,7 +101,10 @@ def _load_forecast(cursor: Any) -> Optional[DailyForecast]:
         (target_date, Decimal(str(amount)))
         for target_date, amount in cursor.fetchall()
     ]
-    return calculate_daily_forecast(daily_values)
+    forecast = calculate_daily_forecast(daily_values)
+    if forecast is None:
+        return None, "El histórico bancario no permite calcular un forecast válido."
+    return forecast, None
 
 
 def _recommendation(
@@ -107,6 +119,7 @@ def _recommendation(
     **evidence_details: Any,
 ) -> Dict[str, Any]:
     evidence = {
+        "regla": rule,
         "alertas_ids": alert_ids or [],
         "kpis_ids": kpi_ids or [],
         **evidence_details,
@@ -126,6 +139,9 @@ def _build_recommendations(
     alerts: List[Dict[str, Any]],
     kpis: List[Dict[str, Any]],
     forecast: Optional[DailyForecast],
+    alert_data_available: bool = True,
+    missing_kpi_codes: Optional[List[str]] = None,
+    forecast_unavailable_reason: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     recommendations: List[Dict[str, Any]] = []
     open_overruns = [
@@ -250,18 +266,120 @@ def _build_recommendations(
                     % negative_points[0]["valor_predicho"],
                     "Validar el saldo disponible y preparar un plan de liquidez para ese horizonte revisando cobros, pagos y alternativas de financiamiento.",
                     "alta" if earliest_horizon <= 30 else "media",
-                    forecast=negative_points,
+                    forecast=[
+                        {
+                            **point,
+                            "fecha_objetivo": point["fecha_objetivo"].isoformat(),
+                        }
+                        for point in negative_points
+                    ],
                 )
             )
+
+    missing_sources = []
+    if not alert_data_available:
+        missing_sources.append("alertas de desviación")
+    if missing_kpi_codes:
+        missing_sources.append("KPIs: %s" % ", ".join(missing_kpi_codes))
+    if forecast_unavailable_reason:
+        missing_sources.append("forecast: %s" % forecast_unavailable_reason)
+    if missing_sources:
+        recommendations.append(
+            _recommendation(
+                "datos_insuficientes",
+                date.today(),
+                "No hay datos suficientes para evaluar todas las reglas: %s."
+                % "; ".join(missing_sources),
+                "No se calcularon impactos ni resultados para las fuentes faltantes.",
+                "Incorporar o actualizar los datos indicados y volver a generar las recomendaciones.",
+                "baja",
+                fuentes_faltantes=missing_sources,
+                kpi_codigos_faltantes=missing_kpi_codes or [],
+                motivo_forecast_no_disponible=forecast_unavailable_reason,
+            )
+        )
 
     return recommendations
 
 
-def generate_recommendations() -> List[Dict[str, Any]]:
-    """Genera recomendaciones deterministas con evidencia de las tablas financieras."""
+def _persist_recommendations(
+    cursor: Any,
+    recommendations: List[Dict[str, Any]],
+    user_id: Optional[UUID],
+) -> List[Dict[str, Any]]:
+    persisted: List[Dict[str, Any]] = []
+    for recommendation in recommendations:
+        prompt_used = json.dumps(
+            {
+                "regla": recommendation["regla"],
+                "situacion": recommendation["situacion"],
+                "impacto": recommendation["impacto"],
+                "recomendacion_texto": recommendation["recomendacion_texto"],
+            },
+            ensure_ascii=False,
+        )
+        cursor.execute(
+            """
+            INSERT INTO recomendaciones_ia (
+                usuario_id, periodo, situacion, impacto, recomendacion_texto,
+                prioridad, evidencia, version_prompt, prompt_utilizado,
+                texto_generado, nombre_modelo, generado_en
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
+            RETURNING id, generado_en
+            """,
+            (
+                str(user_id) if user_id else None,
+                recommendation["periodo"],
+                recommendation["situacion"],
+                recommendation["impacto"],
+                recommendation["recomendacion_texto"],
+                recommendation["prioridad"],
+                json.dumps(recommendation["evidencia"], ensure_ascii=False),
+                RULES_VERSION,
+                prompt_used,
+                recommendation["recomendacion_texto"],
+                RULES_VERSION,
+                datetime.now(timezone.utc),
+            ),
+        )
+        recommendation_id, generated_at = cursor.fetchone()
+        persisted.append(
+            {
+                "id": recommendation_id,
+                "user_id": user_id,
+                "period": recommendation["periodo"],
+                "situation": recommendation["situacion"],
+                "impact": recommendation["impacto"],
+                "recommendation_text": recommendation["recomendacion_texto"],
+                "priority": recommendation["prioridad"],
+                "evidence": recommendation["evidencia"],
+                "prompt_version": RULES_VERSION,
+                "generated_text": recommendation["recomendacion_texto"],
+                "model_name": RULES_VERSION,
+                "generated_at": generated_at,
+            }
+        )
+    return persisted
+
+
+def generate_recommendations(user_id: Optional[UUID] = None) -> List[Dict[str, Any]]:
+    """Genera y guarda recomendaciones explicables con evidencia de datos financieros."""
     with get_db_connection() as connection:
         with connection.cursor() as cursor:
-            alerts = _load_open_alerts(cursor)
+            alerts, alert_data_available = _load_open_alerts(cursor)
             kpis = _load_latest_kpis(cursor)
-            forecast = _load_forecast(cursor)
-    return _build_recommendations(alerts, kpis, forecast)
+            forecast, forecast_unavailable_reason = _load_forecast(cursor)
+            available_kpi_codes = {kpi["codigo"] for kpi in kpis}
+            missing_kpi_codes = sorted(set(TRACKED_KPI_CODES) - available_kpi_codes)
+            recommendations = _build_recommendations(
+                alerts,
+                kpis,
+                forecast,
+                alert_data_available=alert_data_available,
+                missing_kpi_codes=missing_kpi_codes,
+                forecast_unavailable_reason=forecast_unavailable_reason,
+            )
+            persisted = _persist_recommendations(cursor, recommendations, user_id)
+            connection.commit()
+    return persisted

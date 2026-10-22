@@ -279,7 +279,7 @@ CREATE TABLE alertas (
 COMMENT ON TABLE alertas IS 'Alertas de desviación presupuestal (periodo + área + concepto), con montos presupuestado/real, severidad, estado del flujo de atención y responsable asignado, según sección 15 del PRD.';
 
 -- ============================================================================
--- 7. IA GENERATIVA
+-- 7. RECOMENDACIONES DETERMINISTAS (la tabla conserva su nombre legado)
 -- ============================================================================
 
 CREATE TABLE recomendaciones_ia (
@@ -291,13 +291,13 @@ CREATE TABLE recomendaciones_ia (
     recomendacion_texto TEXT NOT NULL,          -- acción concreta recomendada
     prioridad           prioridad_recomendacion NOT NULL DEFAULT 'media',
     evidencia           JSONB,                  -- referencias a valores_kpi.id / alertas.id que sustentan la recomendación
-    version_prompt      VARCHAR(50) NOT NULL,   -- versión del prompt/plantilla usada (distinta del texto completo)
-    prompt_utilizado    TEXT NOT NULL,      -- se guarda para trazabilidad/auditoría
-    texto_generado      TEXT NOT NULL,
-    nombre_modelo       VARCHAR(100) NOT NULL,   -- ej. 'gpt-4o-mini'
+    version_prompt      VARCHAR(50) NOT NULL,   -- versión de las reglas explicables
+    prompt_utilizado    TEXT NOT NULL,      -- regla y plantilla determinista usada para trazabilidad
+    texto_generado      TEXT NOT NULL,      -- texto generado por la regla, sin IA generativa
+    nombre_modelo       VARCHAR(100) NOT NULL,   -- identificador del generador, por ejemplo 'reglas-v1'
     generado_en         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE recomendaciones_ia IS 'Cada resumen/recomendación generado por el servicio de IA: situación, impacto, recomendación, prioridad y evidencia (sección 16 del PRD), con prompt exacto, versión del prompt, modelo y usuario, para trazabilidad/auditoría y explicabilidad.';
+COMMENT ON TABLE recomendaciones_ia IS 'Historial de recomendaciones generadas por reglas explicables: situación, impacto, recomendación, prioridad y evidencia (sección 16 del PRD), con versión de reglas, usuario y fecha para trazabilidad. El nombre de la tabla se conserva por compatibilidad.';
 
 CREATE TABLE retroalimentacion_ia (
     id                  BIGSERIAL PRIMARY KEY,
@@ -307,7 +307,7 @@ CREATE TABLE retroalimentacion_ia (
     comentario          TEXT,
     creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE retroalimentacion_ia IS 'Feedback del CFO sobre cada recomendación, para medir utilidad y ajustar el prompt/modelo con el tiempo.';
+COMMENT ON TABLE retroalimentacion_ia IS 'Feedback del CFO sobre cada recomendación, para medir su utilidad y ajustar las reglas explicables.';
 
 -- ============================================================================
 -- 8. AUDITORÍA

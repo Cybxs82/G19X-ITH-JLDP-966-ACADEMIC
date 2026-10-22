@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.controllers import financial_controller
 from backend.controllers.financial_controller import require_authenticated_user
 from backend.models.schemas import AlertResponse, AlertSeverity, AlertStatus, ForecastResponse
 from backend.infrastructure import database
@@ -173,6 +174,46 @@ def test_dashboard_requires_session() -> None:
     response = client.get("/api/v1/dashboard")
 
     assert response.status_code == 401
+
+
+def test_generate_recommendations_requires_session() -> None:
+    response = client.post("/api/v1/recommendations/generate")
+
+    assert response.status_code == 401
+
+
+def test_generate_recommendations_returns_persisted_rule_shape(monkeypatch, analyst_session) -> None:
+    generated_for = {}
+    user_id = "00000000-0000-0000-0000-000000000002"
+
+    def fake_generate_recommendations(requested_user_id):
+        generated_for["user_id"] = str(requested_user_id)
+        return [
+            {
+                "id": 44,
+                "user_id": requested_user_id,
+                "period": date(2026, 10, 1),
+                "situation": "El margen operativo es negativo.",
+                "impact": "Margen: -2%.",
+                "recommendation_text": "Revisar gastos.",
+                "priority": "alta",
+                "evidence": {"regla": "margen_operativo_negativo", "alertas_ids": [], "kpis_ids": [11]},
+                "prompt_version": "reglas-v1",
+                "generated_text": "Revisar gastos.",
+                "model_name": "reglas-v1",
+                "generated_at": datetime.now(timezone.utc),
+            }
+        ]
+
+    monkeypatch.setattr(financial_controller, "generate_recommendations", fake_generate_recommendations)
+
+    response = client.post("/api/v1/recommendations/generate")
+
+    assert response.status_code == 200
+    assert generated_for["user_id"] == user_id
+    assert response.json()[0]["model_name"] == "reglas-v1"
+    assert response.json()[0]["prompt_version"] == "reglas-v1"
+    assert response.json()[0]["evidence"]["kpis_ids"] == [11]
 
 
 def test_cost_centers_require_session() -> None:

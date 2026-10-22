@@ -29,6 +29,7 @@ from ..models.schemas import (
 )
 from ..repositories.financial_repository import PostgreSQLRepository
 from ..services.ingestion_service import ingest_budget_file, ingest_erp_document, ingest_file
+from ..services.recommendation_service import generate_recommendations
 from ..services.auth_service import SESSION_COOKIE, authenticate_user, get_session_user, register_user, revoke_session, update_profile
 
 
@@ -156,6 +157,17 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
     @router.get("/recommendations", response_model=List[RecommendationResponse], dependencies=[Depends(require_authenticated_user)])
     def get_recommendations(period: Optional[date] = None) -> List[RecommendationResponse]:
         return repository.list_recommendations(period)
+
+    @router.post(
+        "/recommendations/generate",
+        response_model=List[RecommendationResponse],
+        dependencies=[Depends(require_authenticated_user)],
+    )
+    def generate_financial_recommendations(
+        user: Dict[str, Any] = Depends(require_authenticated_user),
+    ) -> List[RecommendationResponse]:
+        generated = generate_recommendations(UUID(str(user["id"])))
+        return [RecommendationResponse(**recommendation) for recommendation in generated]
 
     @router.post("/feedback", response_model=FeedbackResponse, status_code=201)
     def create_feedback(payload: FeedbackCreate, user: Dict[str, Any] = Depends(require_authenticated_user)) -> FeedbackResponse:
