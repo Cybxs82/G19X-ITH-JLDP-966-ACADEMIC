@@ -24,11 +24,10 @@ type DashboardViewProps = {
 export function DashboardView({ dashboard, user, dashboardError = "", onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, onUpdateAlert, filters = { periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 }, costCenters = [], onFiltersChange, activeSection = "Resumen", children }: DashboardViewProps) {
   const [activeNav, setActiveNav] = useState<string>(activeSection);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() =>
     typeof window === "undefined" ? "light" : (localStorage.getItem("cfo-theme") as "light" | "dark") || "light",
   );
-  const [profileMenuAnchor, setProfileMenuAnchor] = useState<"sidebar" | "header" | null>(null);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [alertError, setAlertError] = useState("");
   const [alertComments, setAlertComments] = useState<Record<number, string>>({});
@@ -41,10 +40,6 @@ export function DashboardView({ dashboard, user, dashboardError = "", onLogout, 
     } catch (error) {
       setLogoutError(error instanceof Error ? error.message : "No se pudo cerrar la sesión.");
     }
-  }
-
-  function openProfileMenu(anchor: "sidebar" | "header") {
-    setProfileMenuAnchor((current) => current === anchor ? null : anchor);
   }
 
   async function updateAlert(alertId: number, status: Alert["status"]) {
@@ -97,55 +92,6 @@ export function DashboardView({ dashboard, user, dashboardError = "", onLogout, 
           ))}
         </nav>
 
-        <div className="sidebar-bottom">
-          <button className="nav-item" type="button" onClick={() => setShowSettings((current) => !current)}>
-            <span className="nav-dot" />Configuración
-          </button>
-
-          {showSettings && (
-            <div className="settings-panel">
-              <div className="settings-header">
-                <strong>Configuración</strong>
-                <button type="button" className="ghost-button" onClick={() => setShowSettings(false)}>
-                  Cerrar
-                </button>
-              </div>
-
-              <div className="settings-section">
-                <span>Tema</span>
-                <button
-                  type="button"
-                  className="theme-toggle"
-                  onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
-                >
-                  {theme === "dark" ? "Modo claro" : "Modo oscuro"}
-                </button>
-              </div>
-
-              <div className="settings-section">
-                <span>Fase 2 · Integración</span>
-                <small>ERP + Banco · cargas manuales</small>
-              </div>
-            </div>
-          )}
-
-          <div className="profile">
-            <div className="avatar">{user.full_name.slice(0, 2).toUpperCase()}</div>
-            <div>
-              <strong>{user.full_name}</strong>
-              <small>{user.role}</small>
-            </div>
-            <button type="button" className="logout-button" onClick={() => openProfileMenu("sidebar")} aria-label="Abrir menú de perfil" aria-expanded={profileMenuAnchor === "sidebar"} aria-haspopup="menu">
-              ⋯
-            </button>
-            {profileMenuAnchor === "sidebar" && (
-              <div className="profile-menu profile-menu-sidebar" role="menu">
-                <button type="button" role="menuitem" onClick={() => { setProfileMenuAnchor(null); onEditProfile(); }}>Editar perfil</button>
-                <button type="button" role="menuitem" onClick={() => void handleLogout()}>Cerrar sesión</button>
-              </div>
-            )}
-          </div>
-        </div>
       </aside>
 
       <section className="content-area">
@@ -166,12 +112,12 @@ export function DashboardView({ dashboard, user, dashboardError = "", onLogout, 
             >
               {theme === "dark" ? "☀" : "☾"}
             </button>
-            <button type="button" className="mini-avatar profile-trigger" aria-label="Abrir menú de perfil" aria-expanded={profileMenuAnchor === "header"} aria-haspopup="menu" onClick={() => openProfileMenu("header")}>
+            <button type="button" className="mini-avatar profile-trigger" aria-label="Abrir menú de perfil" aria-expanded={isProfileMenuOpen} aria-haspopup="menu" onClick={() => setIsProfileMenuOpen((current) => !current)}>
               {user.full_name.slice(0, 2).toUpperCase()}
             </button>
-            {profileMenuAnchor === "header" && (
+            {isProfileMenuOpen && (
               <div className="profile-menu profile-menu-header" role="menu">
-                <button type="button" role="menuitem" onClick={() => { setProfileMenuAnchor(null); onEditProfile(); }}>Editar perfil</button>
+                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onEditProfile(); }}>Editar perfil</button>
                 <button type="button" role="menuitem" onClick={() => void handleLogout()}>Cerrar sesión</button>
               </div>
             )}
