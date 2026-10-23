@@ -1,11 +1,11 @@
 from collections import defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 from decimal import Decimal
-import json
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from ..infrastructure.database import get_db_connection
+from ..repositories.financial_repository import PostgreSQLRepository
 from .forecast_service import DailyForecast, calculate_daily_forecast
 
 
@@ -307,60 +307,15 @@ def _persist_recommendations(
     recommendations: List[Dict[str, Any]],
     user_id: Optional[UUID],
 ) -> List[Dict[str, Any]]:
-    persisted: List[Dict[str, Any]] = []
-    for recommendation in recommendations:
-        prompt_used = json.dumps(
-            {
-                "regla": recommendation["regla"],
-                "situacion": recommendation["situacion"],
-                "impacto": recommendation["impacto"],
-                "recomendacion_texto": recommendation["recomendacion_texto"],
-            },
-            ensure_ascii=False,
+    return [
+        PostgreSQLRepository.insert_recommendation(
+            cursor,
+            recommendation,
+            user_id,
+            RULES_VERSION,
         )
-        cursor.execute(
-            """
-            INSERT INTO recomendaciones_ia (
-                usuario_id, periodo, situacion, impacto, recomendacion_texto,
-                prioridad, evidencia, version_prompt, prompt_utilizado,
-                texto_generado, nombre_modelo, generado_en
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
-            RETURNING id, generado_en
-            """,
-            (
-                str(user_id) if user_id else None,
-                recommendation["periodo"],
-                recommendation["situacion"],
-                recommendation["impacto"],
-                recommendation["recomendacion_texto"],
-                recommendation["prioridad"],
-                json.dumps(recommendation["evidencia"], ensure_ascii=False),
-                RULES_VERSION,
-                prompt_used,
-                recommendation["recomendacion_texto"],
-                RULES_VERSION,
-                datetime.now(timezone.utc),
-            ),
-        )
-        recommendation_id, generated_at = cursor.fetchone()
-        persisted.append(
-            {
-                "id": recommendation_id,
-                "user_id": user_id,
-                "period": recommendation["periodo"],
-                "situation": recommendation["situacion"],
-                "impact": recommendation["impacto"],
-                "recommendation_text": recommendation["recomendacion_texto"],
-                "priority": recommendation["prioridad"],
-                "evidence": recommendation["evidencia"],
-                "prompt_version": RULES_VERSION,
-                "generated_text": recommendation["recomendacion_texto"],
-                "model_name": RULES_VERSION,
-                "generated_at": generated_at,
-            }
-        )
-    return persisted
+        for recommendation in recommendations
+    ]
 
 
 def generate_recommendations(user_id: Optional[UUID] = None) -> List[Dict[str, Any]]:

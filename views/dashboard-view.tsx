@@ -286,6 +286,44 @@ export function DashboardView({ dashboard, user, dashboardError = "", onLogout, 
 
           </div>
 
+          <section className="panel ai-panel" aria-label="Recomendaciones financieras">
+            <div className="panel-heading">
+              <div className="ai-heading">
+                <span className="ai-spark" aria-hidden="true">✦</span>
+                <div>
+                  <p className="eyebrow">REGLAS FINANCIERAS</p>
+                  <h2>Recomendaciones</h2>
+                </div>
+              </div>
+              <span className="count-badge">{dashboard.recommendations.length}</span>
+            </div>
+
+            {dashboard.recommendations.length === 0 ? (
+              <p className="data-empty">No hay recomendaciones para mostrar.</p>
+            ) : (
+              <div className="recommendations-list">
+                {dashboard.recommendations.map((recommendation) => (
+                  <article className="recommendation" key={recommendation.id}>
+                    <span className={`priority ${recommendation.priority}`}>
+                      {recommendation.priority}
+                    </span>
+                    <strong>{recommendation.situation}</strong>
+                    <p><b>Impacto:</b> {recommendation.impact || "No cuantificado."}</p>
+                    <p><b>Recomendación:</b> {recommendation.recommendationText}</p>
+                    <details className="recommendation-evidence">
+                      <summary>Evidencia</summary>
+                      {recommendation.evidence ? (
+                        <pre>{JSON.stringify(recommendation.evidence, null, 2)}</pre>
+                      ) : (
+                        <p>Sin evidencia disponible.</p>
+                      )}
+                    </details>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
           <section className="panel alerts-panel">
             <div className="panel-heading">
               <div>

@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, List, Optional
+import json
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from ..infrastructure.config import get_settings
@@ -38,6 +39,105 @@ def _sync_alert_id_sequence(cursor: Any) -> None:
 
 class PostgreSQLRepository:
     """Repositorio basado en PostgreSQL para la plataforma financiera."""
+
+    @staticmethod
+    def insert_recommendation(
+        cursor: Any,
+        recommendation: Dict[str, Any],
+        user_id: Optional[UUID],
+        prompt_version: str,
+    ) -> Dict[str, Any]:
+        """Guarda una recomendación, actualizando la misma regla del periodo si existe."""
+        user_id_value = str(user_id) if user_id else None
+        generated_text = (
+            "Situación: %s\nImpacto: %s\nRecomendación: %s"
+            % (
+                recommendation["situacion"],
+                recommendation["impacto"] or "No cuantificado.",
+                recommendation["recomendacion_texto"],
+            )
+        )
+        evidence = json.dumps(recommendation["evidencia"], ensure_ascii=False)
+        generated_at = datetime.now(timezone.utc)
+        values = (
+            recommendation["situacion"],
+            recommendation["impacto"],
+            recommendation["recomendacion_texto"],
+            recommendation["prioridad"],
+            evidence,
+            prompt_version,
+            recommendation["regla"],
+            generated_text,
+            prompt_version,
+            generated_at,
+        )
+
+        cursor.execute(
+            """
+            SELECT id
+            FROM recomendaciones_ia
+            WHERE periodo = %s
+              AND usuario_id IS NOT DISTINCT FROM %s
+              AND evidencia->>'regla' = %s
+            ORDER BY id DESC
+            LIMIT 1
+            FOR UPDATE
+            """,
+            (recommendation["periodo"], user_id_value, recommendation["regla"]),
+        )
+        existing = cursor.fetchone()
+        if existing is None:
+            cursor.execute(
+                """
+                INSERT INTO recomendaciones_ia (
+                    usuario_id, periodo, situacion, impacto, recomendacion_texto,
+                    prioridad, evidencia, version_prompt, prompt_utilizado,
+                    texto_generado, nombre_modelo, generado_en
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
+                RETURNING id, generado_en
+                """,
+                (
+                    user_id_value,
+                    recommendation["periodo"],
+                    *values,
+                ),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE recomendaciones_ia
+                SET situacion = %s,
+                    impacto = %s,
+                    recomendacion_texto = %s,
+                    prioridad = %s,
+                    evidencia = %s::jsonb,
+                    version_prompt = %s,
+                    prompt_utilizado = %s,
+                    texto_generado = %s,
+                    nombre_modelo = %s,
+                    generado_en = %s
+                WHERE id = %s
+                RETURNING id, generado_en
+                """,
+                (*values, existing[0]),
+            )
+
+        recommendation_id, persisted_at = cursor.fetchone()
+        return {
+            "id": recommendation_id,
+            "user_id": user_id,
+            "period": recommendation["periodo"],
+            "situation": recommendation["situacion"],
+            "impact": recommendation["impacto"],
+            "recommendation_text": recommendation["recomendacion_texto"],
+            "priority": recommendation["prioridad"],
+            "evidence": recommendation["evidencia"],
+            "prompt_version": prompt_version,
+            "generated_text": generated_text,
+            "model_name": prompt_version,
+            "generated_at": persisted_at,
+        }
 
     def __init__(self) -> None:
         self._last_sync: Optional[datetime] = None

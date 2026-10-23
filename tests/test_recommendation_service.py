@@ -113,12 +113,16 @@ def test_recommendations_are_persisted_as_rules_with_version_and_evidence() -> N
         def __init__(self) -> None:
             self.parameters = []
             self.statements = []
+            self.last_statement = ""
 
         def execute(self, statement, parameters) -> None:
             self.statements.append(statement)
             self.parameters.append(parameters)
+            self.last_statement = " ".join(statement.split()).lower()
 
         def fetchone(self):
+            if self.last_statement.startswith("select id"):
+                return None
             return 501, generated_at
 
     recommendation = {
@@ -135,16 +139,61 @@ def test_recommendations_are_persisted_as_rules_with_version_and_evidence() -> N
 
     persisted = _persist_recommendations(cursor, [recommendation], user_id)
 
-    inserted_values = cursor.parameters[0]
-    assert "INSERT INTO recomendaciones_ia" in cursor.statements[0]
+    inserted_values = cursor.parameters[1]
+    assert "INSERT INTO recomendaciones_ia" in cursor.statements[1]
     assert inserted_values[0] == str(user_id)
     assert inserted_values[6] == '{"regla": "flujo_neto_bancario_negativo", "alertas_ids": [], "kpis_ids": [21]}'
     assert inserted_values[7] == RULES_VERSION
+    assert inserted_values[8] == "flujo_neto_bancario_negativo"
+    assert inserted_values[9] == (
+        "Situación: El flujo neto bancario es negativo.\n"
+        "Impacto: El flujo neto reduce caja en 50.\n"
+        "Recomendación: Validar cobros y pagos."
+    )
     assert inserted_values[10] == RULES_VERSION
     assert persisted[0]["id"] == 501
     assert persisted[0]["evidence"] == recommendation["evidencia"]
     assert persisted[0]["model_name"] == RULES_VERSION
     assert persisted[0]["generated_at"] == generated_at
+
+
+def test_recommendation_generation_updates_existing_rule_instead_of_duplicating() -> None:
+    generated_at = datetime.now(timezone.utc)
+
+    class FakeCursor:
+        def __init__(self) -> None:
+            self.statements = []
+            self.parameters = []
+
+        def execute(self, statement, parameters) -> None:
+            self.statements.append(" ".join(statement.split()).lower())
+            self.parameters.append(parameters)
+
+        def fetchone(self):
+            if self.statements[-1].startswith("select id"):
+                return 501,
+            return 501, generated_at
+
+    recommendation = {
+        "regla": "flujo_neto_bancario_negativo",
+        "periodo": date(2026, 10, 1),
+        "situacion": "El flujo neto bancario es negativo.",
+        "impacto": "El flujo neto reduce caja en 50.",
+        "recomendacion_texto": "Validar cobros y pagos.",
+        "prioridad": "alta",
+        "evidencia": {"regla": "flujo_neto_bancario_negativo", "alertas_ids": [], "kpis_ids": [21]},
+    }
+    cursor = FakeCursor()
+
+    saved = _persist_recommendations(
+        cursor,
+        [recommendation],
+        UUID("00000000-0000-0000-0000-000000000002"),
+    )
+
+    assert len(cursor.statements) == 2
+    assert cursor.statements[1].startswith("update recomendaciones_ia")
+    assert saved[0]["id"] == 501
 
 
 def test_generate_recommendations_persists_explicit_missing_data_notice(monkeypatch) -> None:
@@ -166,6 +215,8 @@ def test_generate_recommendations_persists_explicit_missing_data_notice(monkeypa
             normalized = " ".join(statement.split()).lower()
             if normalized.startswith("select exists"):
                 self.result = (False,)
+            elif normalized.startswith("select id from recomendaciones_ia"):
+                self.result = None
             elif normalized.startswith("select id, periodo"):
                 self.rows = []
             elif normalized.startswith("select distinct on"):

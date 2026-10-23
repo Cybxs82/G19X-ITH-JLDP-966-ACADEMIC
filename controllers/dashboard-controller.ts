@@ -30,6 +30,11 @@ type ApiDashboard = {
   }>;
   recommendations: Array<{
     id: number;
+    situation: string;
+    impact: string | null;
+    recommendation_text: string;
+    priority: "baja" | "media" | "alta";
+    evidence: Record<string, unknown> | null;
     generated_text: string;
   }>;
 };
@@ -100,9 +105,12 @@ function mapDashboard(data: ApiDashboard, horizonDays: DashboardFilters["horizon
       };
     }),
     recommendations: data.recommendations.map((recommendation) => ({
-      title: `Recomendación ${recommendation.id}`,
-      detail: recommendation.generated_text,
-      priority: recommendation.id === 1 ? "Alta" : "Media",
+      id: recommendation.id,
+      situation: recommendation.situation,
+      impact: recommendation.impact,
+      recommendationText: recommendation.recommendation_text,
+      priority: recommendation.priority,
+      evidence: recommendation.evidence,
     })),
   };
 }

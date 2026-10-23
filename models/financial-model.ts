@@ -28,9 +28,12 @@ export type Alert = {
 };
 
 export type Recommendation = {
-  title: string;
-  detail: string;
-  priority: "Alta" | "Media";
+  id: number;
+  situation: string;
+  impact: string | null;
+  recommendationText: string;
+  priority: "baja" | "media" | "alta";
+  evidence: Record<string, unknown> | null;
 };
 
 export type CostCenter = { id: number; name: string };

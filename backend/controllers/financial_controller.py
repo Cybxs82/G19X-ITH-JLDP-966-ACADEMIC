@@ -161,10 +161,9 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
     @router.post(
         "/recommendations/generate",
         response_model=List[RecommendationResponse],
-        dependencies=[Depends(require_authenticated_user)],
     )
     def generate_financial_recommendations(
-        user: Dict[str, Any] = Depends(require_authenticated_user),
+        user: Dict[str, Any] = Depends(require_roles("cfo", "administrador")),
     ) -> List[RecommendationResponse]:
         generated = generate_recommendations(UUID(str(user["id"])))
         return [RecommendationResponse(**recommendation) for recommendation in generated]

@@ -182,9 +182,15 @@ def test_generate_recommendations_requires_session() -> None:
     assert response.status_code == 401
 
 
-def test_generate_recommendations_returns_persisted_rule_shape(monkeypatch, analyst_session) -> None:
+@pytest.mark.parametrize("role", ["cfo", "administrador"])
+def test_generate_recommendations_returns_persisted_rule_shape(monkeypatch, role) -> None:
     generated_for = {}
     user_id = "00000000-0000-0000-0000-000000000002"
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        require_authenticated_user,
+        lambda: {"id": user_id, "role": role},
+    )
 
     def fake_generate_recommendations(requested_user_id):
         generated_for["user_id"] = str(requested_user_id)
@@ -214,6 +220,12 @@ def test_generate_recommendations_returns_persisted_rule_shape(monkeypatch, anal
     assert response.json()[0]["model_name"] == "reglas-v1"
     assert response.json()[0]["prompt_version"] == "reglas-v1"
     assert response.json()[0]["evidence"]["kpis_ids"] == [11]
+
+
+def test_analyst_cannot_generate_recommendations(analyst_session) -> None:
+    response = client.post("/api/v1/recommendations/generate")
+
+    assert response.status_code == 403
 
 
 def test_cost_centers_require_session() -> None:
