@@ -653,6 +653,9 @@ h2 { font-size: 18px; }
 .profile-back-link { background: transparent; color: var(--teal); font-size: 12px; font-weight: 700; padding: 10px 0 0; }
 .erp-upload-content { margin: 0 auto; max-width: 1050px; padding: 8px 0 30px; }
 .erp-upload-content h1 { font-size: 34px; }
+.danger-button { background: #a63838; border: 1px solid #a63838; border-radius: 5px; color: #fff; font-size: 11px; padding: 11px 15px; }
+.danger-button:hover { background: #892d2d; }
+.danger-button:disabled { cursor: not-allowed; opacity: 0.6; }
 .erp-upload-form { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 22px; margin-top: 30px; padding: 26px; }
 .erp-file-field { color: var(--ink); display: grid; font-size: 13px; font-weight: 700; gap: 10px; }
 .erp-file-field input { background: var(--paper); border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); padding: 16px; width: 100%; }

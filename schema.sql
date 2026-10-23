@@ -190,11 +190,12 @@ CREATE TABLE presupuestos (
     id                  BIGSERIAL PRIMARY KEY,
     cuenta_id           INT NOT NULL REFERENCES cuentas(id),
     centro_costo_id     INT REFERENCES centros_costo(id),
+    fuente_datos_id     INT REFERENCES fuentes_datos(id),
     periodo             DATE NOT NULL,      -- primer día del mes que representa
     monto_presupuestado NUMERIC(18,2) NOT NULL,
     version             INT NOT NULL DEFAULT 1,   -- para versionar escenarios de presupuesto
     creado_en           TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE NULLS NOT DISTINCT (cuenta_id, centro_costo_id, periodo, version)
+    UNIQUE NULLS NOT DISTINCT (cuenta_id, centro_costo_id, periodo, version, fuente_datos_id)
 );
 COMMENT ON TABLE presupuestos IS 'Presupuesto por cuenta/centro de costo/periodo. El campo version permite comparar escenarios (original vs. revisado).';
 

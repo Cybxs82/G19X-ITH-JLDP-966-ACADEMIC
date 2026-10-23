@@ -170,6 +170,41 @@ def test_erp_document_ingestion_requires_session() -> None:
     assert response.status_code == 401
 
 
+def test_practice_data_cleanup_requires_session() -> None:
+    response = client.delete("/api/v1/ingestion/practice-data")
+
+    assert response.status_code == 401
+
+
+def test_practice_data_cleanup_is_limited_to_ingestion_roles(monkeypatch) -> None:
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        require_authenticated_user,
+        lambda: {"id": "00000000-0000-0000-0000-000000000001", "role": "cfo"},
+    )
+    response = client.delete("/api/v1/ingestion/practice-data")
+    response = client.delete("/api/v1/ingestion/practice-data")
+    assert response.status_code == 403
+    assert response.status_code == 403
+
+
+def test_practice_data_cleanup_returns_deleted_record_counts(monkeypatch, analyst_session) -> None:
+    counts = {
+        "transactions": 12,
+        "budgets": 4,
+        "erp_staging": 12,
+        "bank_staging": 30,
+        "sync_logs": 3,
+        "data_sources": 3,
+    }
+    monkeypatch.setattr(financial_controller, "delete_practice_data", lambda: counts)
+
+    response = client.delete("/api/v1/ingestion/practice-data")
+
+    assert response.status_code == 200
+    assert response.json() == counts
+
+
 def test_dashboard_requires_session() -> None:
     response = client.get("/api/v1/dashboard")
 

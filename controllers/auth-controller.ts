@@ -16,6 +16,14 @@ export type ERPDocumentIngestion = {
   rows_rejected: number;
   status: string;
 };
+export type PracticeDataCleanup = {
+  transactions: number;
+  budgets: number;
+  erp_staging: number;
+  bank_staging: number;
+  sync_logs: number;
+  data_sources: number;
+};
 
 const apiUrl = process.env.CFO_API_URL ?? "http://localhost:8000/api/v1";
 
@@ -122,6 +130,19 @@ export async function uploadERPDocument(file: File, sourceType: "erp" | "banco" 
     });
     if (!response.ok) throw new Error(await readError(response));
     return (await response.json()) as ERPDocumentIngestion;
+  } catch (error) {
+    throw getNetworkError(error);
+  }
+}
+
+export async function deletePracticeData(): Promise<PracticeDataCleanup> {
+  try {
+    const response = await fetch(`${apiUrl}/ingestion/practice-data`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error(await readError(response));
+    return (await response.json()) as PracticeDataCleanup;
   } catch (error) {
     throw getNetworkError(error);
   }

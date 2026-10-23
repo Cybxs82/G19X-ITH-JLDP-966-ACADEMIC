@@ -296,7 +296,8 @@ def _refresh_kpis(cursor: Any) -> None:
             SELECT DISTINCT ON (b.cuenta_id, b.centro_costo_id, b.periodo)
                    b.periodo, b.centro_costo_id, b.monto_presupuestado
             FROM presupuestos b
-            ORDER BY b.cuenta_id, b.centro_costo_id, b.periodo, b.version DESC
+            ORDER BY b.cuenta_id, b.centro_costo_id, b.periodo,
+                     b.version DESC, b.creado_en DESC, b.fuente_datos_id DESC NULLS LAST
         )
         SELECT periodo, centro_costo_id, COALESCE(SUM(monto_presupuestado), 0)
         FROM latest_budgets
@@ -385,7 +386,8 @@ def _refresh_alerts(cursor: Any) -> None:
             SELECT DISTINCT ON (b.cuenta_id, b.centro_costo_id, b.periodo)
                    b.cuenta_id, b.centro_costo_id, b.periodo, b.monto_presupuestado
             FROM presupuestos b
-            ORDER BY b.cuenta_id, b.centro_costo_id, b.periodo, b.version DESC
+            ORDER BY b.cuenta_id, b.centro_costo_id, b.periodo,
+                     b.version DESC, b.creado_en DESC, b.fuente_datos_id DESC NULLS LAST
         ), actuals AS (
             SELECT cuenta_id, centro_costo_id, date_trunc('month', fecha_transaccion)::date AS periodo,
                    ABS(SUM(monto)) AS monto_real
@@ -476,6 +478,106 @@ def _refresh_bank_forecast(cursor: Any) -> None:
             """,
             (forecast_run_id, point.target_date, point.predicted_value, point.lower_bound, point.upper_bound),
         )
+
+
+def delete_practice_data() -> Dict[str, int]:
+    """Delete only imported data whose source filename starts with 'practica_'."""
+    deleted = {
+        "transactions": 0,
+        "budgets": 0,
+        "erp_staging": 0,
+        "bank_staging": 0,
+        "sync_logs": 0,
+        "data_sources": 0,
+    }
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, tipo::text
+                FROM fuentes_datos
+                WHERE lower(nombre) LIKE 'practica\\_%' ESCAPE '\\'
+                """
+            )
+            sources = cursor.fetchall()
+            source_ids = [source_id for source_id, _ in sources]
+            if not source_ids:
+                return deleted
+
+            cursor.execute(
+                """
+                SELECT id
+                FROM registros_sincronizacion
+                WHERE fuente_datos_id = ANY(%s)
+                """,
+                (source_ids,),
+            )
+            sync_ids = [row[0] for row in cursor.fetchall()]
+
+            cursor.execute(
+                """
+                WITH practice_periods AS (
+                    SELECT cuenta_id, centro_costo_id, periodo
+                    FROM presupuestos
+                    WHERE fuente_datos_id = ANY(%s)
+                    UNION
+                    SELECT cuenta_id, centro_costo_id,
+                           date_trunc('month', fecha_transaccion)::date
+                    FROM transacciones
+                    WHERE fuente_datos_id = ANY(%s)
+                )
+                DELETE FROM alertas AS a
+                USING practice_periods AS p
+                WHERE a.cuenta_id = p.cuenta_id
+                  AND a.centro_costo_id IS NOT DISTINCT FROM p.centro_costo_id
+                  AND a.periodo = p.periodo
+                """,
+                (source_ids, source_ids),
+            )
+
+            cursor.execute(
+                "DELETE FROM transacciones WHERE fuente_datos_id = ANY(%s)",
+                (source_ids,),
+            )
+            deleted["transactions"] = cursor.rowcount
+            cursor.execute(
+                "DELETE FROM presupuestos WHERE fuente_datos_id = ANY(%s)",
+                (source_ids,),
+            )
+            deleted["budgets"] = cursor.rowcount
+
+            if sync_ids:
+                cursor.execute(
+                    "DELETE FROM datos_temporales_erp WHERE registro_sincronizacion_id = ANY(%s)",
+                    (sync_ids,),
+                )
+                deleted["erp_staging"] = cursor.rowcount
+                cursor.execute(
+                    "DELETE FROM datos_temporales_banco WHERE registro_sincronizacion_id = ANY(%s)",
+                    (sync_ids,),
+                )
+                deleted["bank_staging"] = cursor.rowcount
+                cursor.execute(
+                    "DELETE FROM registros_sincronizacion WHERE id = ANY(%s)",
+                    (sync_ids,),
+                )
+                deleted["sync_logs"] = cursor.rowcount
+
+            cursor.execute(
+                "DELETE FROM fuentes_datos WHERE id = ANY(%s)",
+                (source_ids,),
+            )
+            deleted["data_sources"] = cursor.rowcount
+
+            _refresh_kpis(cursor)
+            _refresh_alerts(cursor)
+            if any(source_type == "banco" for _, source_type in sources):
+                cursor.execute("DELETE FROM valores_pronostico")
+                cursor.execute("DELETE FROM ejecuciones_pronostico")
+                _refresh_bank_forecast(cursor)
+
+            conn.commit()
+    return deleted
 
 
 def refresh_kpis_from_transactions() -> bool:
@@ -626,8 +728,20 @@ def ingest_budget_file(file_name: str, content: bytes) -> Dict[str, Any]:
                 )
                 cost_center_id = cursor.fetchone()[0]
                 cursor.execute(
-                    "INSERT INTO presupuestos (cuenta_id, centro_costo_id, periodo, monto_presupuestado, version) VALUES (%s, %s, %s, %s, 1) ON CONFLICT (cuenta_id, centro_costo_id, periodo, version) DO UPDATE SET monto_presupuestado = EXCLUDED.monto_presupuestado",
-                    (account_id, cost_center_id, row["period"], row["amount"]),
+                    """
+                    INSERT INTO presupuestos (
+                        cuenta_id, centro_costo_id, periodo, monto_presupuestado,
+                        version, fuente_datos_id
+                    )
+                    VALUES (%s, %s, %s, %s, 1, %s)
+                    ON CONFLICT (
+                        cuenta_id, centro_costo_id, periodo, version, fuente_datos_id
+                    )
+                    DO UPDATE SET
+                        monto_presupuestado = EXCLUDED.monto_presupuestado,
+                        creado_en = now()
+                    """,
+                    (account_id, cost_center_id, row["period"], row["amount"], data_source_id),
                 )
                 payload = {"file_name": file_name, "row_number": row_number, "values": raw_row}
                 cursor.execute(

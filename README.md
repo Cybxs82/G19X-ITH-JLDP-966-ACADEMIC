@@ -53,6 +53,7 @@ El punto de entrada es [`main.py`](main.py). La API expone documentación OpenAP
 - `POST /ingestion/files?source_type=erp`: carga automatizada de archivos `.xlsx`, `.csv` o `.pdf`.
 - `POST /ingestion/documents`: carga autenticada de documentos ERP PDF, CSV o Excel; conserva el texto/payload extraído en staging sin normalizarlo ni recalcular KPIs.
 - `POST /ingestion/budgets`: carga autenticada de presupuesto ERP CSV/Excel con periodo, monto presupuestado, cuenta y centro de costo.
+- `DELETE /ingestion/practice-data`: elimina las cargas cuyo nombre de archivo inicia con `practica_` y actualiza los indicadores derivados.
 - `GET /health`: health check.
 
 El MVP requiere importar movimientos bancarios y presupuestos para calcular desviaciones. El forecast usa regresión lineal diaria, se habilita con al menos 180 días recientes de movimientos bancarios y reporta un intervalo predictivo del 80 % y MAE de backtest a 30 días. Sin datos suficientes, la API devuelve una serie vacía. Los movimientos netos bancarios no se presentan como saldo de caja porque aún no se captura el saldo inicial.
@@ -60,6 +61,16 @@ El MVP requiere importar movimientos bancarios y presupuestos para calcular desv
 El diseño del MVP contempla resúmenes ejecutivos y recomendaciones sin IA generativa ni servicios de pago: se generarán mediante reglas explicables a partir de alertas, KPIs y forecast calculados con datos reales. Si faltan datos para una regla o el forecast no está disponible, se deberá indicar en lugar de inventar cifras.
 
 La conexión PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /health`. La Fase 2 conserva el archivo recibido en `datos_temporales_erp` o `datos_temporales_banco`, normaliza cuentas, centros de costo y transacciones, registra filas rechazadas en `registros_sincronizacion_rechazados` y recalcula los KPIs desde `transacciones`. La carga del seed demo está desactivada por omisión (`CFO_ENABLE_DEMO_DATA=false`); puede habilitarse explícitamente para desarrollo. No se guardan credenciales en el código.
+
+### Migración para rastrear y eliminar presupuestos de práctica
+
+Antes de actualizar una base de datos existente, aplica una sola vez la migración que registra el archivo de origen de cada presupuesto:
+
+```powershell
+psql -U postgres -d todo_plataforma_cfo -f migrations\001_track_budget_data_source.sql
+```
+
+En instalaciones nuevas, `schema.sql` ya incluye ese cambio. La acción **Eliminar datos de práctica** en Carga ERP solo elimina registros asociados a fuentes cuyo nombre de archivo inicia con `practica_`; los presupuestos importados conservan su fuente para no borrar presupuestos de otras cargas.
 
 ### Ejecutar la API
 
@@ -97,6 +108,11 @@ En la **carpeta raíz del proyecto** hay una carpeta llamada **`datos/`** donde 
 3. Para probar y demostrar el MVP con los ejemplos incluidos en la carpeta **`datos/`**, carga **sí o sí**:
    - **Primero:** [`datos/erp_datasheet_50_lineas.csv`](datos/erp_datasheet_50_lineas.csv) (como tipo **ERP**).
    - **Después:** [`datos/presupuesto_template.csv`](datos/presupuesto_template.csv) (como tipo **Presupuesto**).
+4. Para probar el historial diario y la limpieza desde Carga ERP, carga también:
+   - [`datos/practica_transacciones_erp.csv`](datos/practica_transacciones_erp.csv) (como **ERP**).
+   - [`datos/practica_transacciones_bancarias.csv`](datos/practica_transacciones_bancarias.csv) (como **Banco**).
+   - [`datos/practica_presupuestos.csv`](datos/practica_presupuestos.csv) (como **Presupuesto**).
+   Conserva el prefijo `practica_` en los nombres para que el botón **Eliminar datos de práctica** pueda retirar todas esas cargas.
 
 También puedes realizar la importación de los archivos de la carpeta `datos/` por terminal o vía API multipart:
 
@@ -114,3 +130,4 @@ curl.exe -X POST "http://localhost:8000/api/v1/ingestion/files?source_type=erp" 
 - **Presupuesto (CSV/Excel):** Debe incluir `periodo`, `monto_presupuestado`, `cuenta` y `centro_costo`.
 - **PDF:** Se procesan mediante texto extraíble y requieren filas con `fecha` y `monto` legibles.
 - Cada corrida crea un `sync_log`, conserva el payload original en staging y usa `source_type + source_reference` para evitar duplicados.
+- Los archivos de práctica amplían los movimientos ERP y bancarios a una serie diaria continua, suficiente para el mínimo actual de 180 días de entrenamiento del forecast.

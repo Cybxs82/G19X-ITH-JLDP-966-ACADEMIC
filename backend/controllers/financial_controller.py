@@ -28,7 +28,7 @@ from ..models.schemas import (
     SyncResponse,
 )
 from ..repositories.financial_repository import PostgreSQLRepository
-from ..services.ingestion_service import ingest_budget_file, ingest_erp_document, ingest_file
+from ..services.ingestion_service import delete_practice_data, ingest_budget_file, ingest_erp_document, ingest_file
 from ..services.recommendation_service import generate_recommendations
 from ..services.auth_service import SESSION_COOKIE, authenticate_user, get_session_user, register_user, revoke_session, update_profile
 
@@ -223,6 +223,14 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         return IngestionResponse(**result)
+
+    @router.delete(
+        "/ingestion/practice-data",
+        response_model=Dict[str, int],
+        dependencies=[Depends(require_roles("analista", "administrador"))],
+    )
+    def remove_practice_data() -> Dict[str, int]:
+        return delete_practice_data()
 
     @router.get("/dashboard", response_model=DashboardResponse, dependencies=[Depends(require_authenticated_user)])
     def get_dashboard(
