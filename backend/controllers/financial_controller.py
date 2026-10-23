@@ -156,6 +156,7 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
 
     @router.get("/recommendations", response_model=List[RecommendationResponse], dependencies=[Depends(require_authenticated_user)])
     def get_recommendations(period: Optional[date] = None) -> List[RecommendationResponse]:
+        generate_recommendations()
         return repository.list_recommendations(period)
 
     @router.post(
@@ -232,23 +233,33 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
     def remove_practice_data() -> Dict[str, int]:
         return delete_practice_data()
 
-    @router.get("/dashboard", response_model=DashboardResponse, dependencies=[Depends(require_authenticated_user)])
+    @router.get(
+        "/dashboard",
+        response_model=DashboardResponse,
+        dependencies=[Depends(require_authenticated_user)],
+    )
     def get_dashboard(
         period_from: Optional[date] = None,
         period_to: Optional[date] = None,
         cost_center_id: Optional[int] = Query(default=None, gt=0),
+        horizon_days: int = Query(default=90, ge=30, le=90),
     ) -> DashboardResponse:
         end = period_to or date.today()
         start = period_from or end - timedelta(days=365)
         if start > end:
             raise HTTPException(status_code=422, detail="period_from no puede ser posterior a period_to")
+        if horizon_days not in (30, 60, 90):
+            raise HTTPException(status_code=422, detail="horizon_days debe ser 30, 60 o 90")
+        kpis = repository.list_kpis(start, end, cost_center_id)
+        forecast = repository.forecast(horizon_days, start, end, cost_center_id)
+        alerts = repository.list_alerts(cost_center_id=cost_center_id, period_from=start, period_to=end)
         return DashboardResponse(
             period_from=start,
             period_to=end,
             last_sync=repository.last_sync,
-            kpis=repository.list_kpis(start, end, cost_center_id),
-            forecast=repository.forecast(90, start, end, cost_center_id),
-            alerts=repository.list_alerts(cost_center_id=cost_center_id, period_from=start, period_to=end),
+            kpis=kpis,
+            forecast=forecast,
+            alerts=alerts,
             recommendations=repository.list_recommendations(),
         )
 

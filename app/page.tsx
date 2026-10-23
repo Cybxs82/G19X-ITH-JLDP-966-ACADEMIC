@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getCostCenters, getFinancialDashboard, updateAlertStatus } from "@/controllers/dashboard-controller";
+import { getCostCenters, getFinancialDashboard, getRecommendations, updateAlertStatus } from "@/controllers/dashboard-controller";
 import { getCurrentUser, login, logout, register, type AuthUser } from "@/controllers/auth-controller";
 import { financialDashboard, type CostCenter, type DashboardFilters, type FinancialDashboard } from "@/models/financial-model";
 import { DashboardView } from "@/views/dashboard-view";
@@ -16,6 +16,7 @@ export default function Home() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [dashboard, setDashboard] = useState<FinancialDashboard>(financialDashboard);
   const [dashboardError, setDashboardError] = useState("");
+  const [recommendationsError, setRecommendationsError] = useState("");
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [filters, setFilters] = useState<DashboardFilters>({ periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 });
   const [errorMessage, setErrorMessage] = useState("");
@@ -44,7 +45,10 @@ export default function Home() {
     void getFinancialDashboard(filters)
       .then((currentDashboard) => {
         if (ignore) return;
-        setDashboard(currentDashboard);
+        setDashboard((current) => ({
+          ...currentDashboard,
+          recommendations: current.recommendations,
+        }));
         setDashboardError("");
       })
       .catch((error) => {
@@ -53,6 +57,22 @@ export default function Home() {
       });
     return () => { ignore = true; };
   }, [authState, filters]);
+
+  useEffect(() => {
+    if (authState !== "authenticated") return;
+    let ignore = false;
+    void getRecommendations()
+      .then((recommendations) => {
+        if (ignore) return;
+        setDashboard((current) => ({ ...current, recommendations }));
+        setRecommendationsError("");
+      })
+      .catch((error) => {
+        if (ignore) return;
+        setRecommendationsError(error instanceof Error ? error.message : "No se pudieron cargar las recomendaciones.");
+      });
+    return () => { ignore = true; };
+  }, [authState]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -91,7 +111,7 @@ export default function Home() {
   }
 
   if (authState === "authenticated" && user) {
-    return <DashboardView dashboard={dashboard} user={user} dashboardError={dashboardError} filters={filters} costCenters={costCenters} onFiltersChange={setFilters} onUpdateAlert={handleAlertUpdate} onLogout={handleLogout} onEditProfile={() => router.push("/profile")} onOpenDashboard={() => router.push("/")} onOpenIngestion={() => router.push("/ingestion")} />;
+    return     <DashboardView dashboard={dashboard} user={user} dashboardError={dashboardError} recommendationsError={recommendationsError} filters={filters} costCenters={costCenters} onFiltersChange={setFilters} onUpdateAlert={handleAlertUpdate} onLogout={handleLogout} onEditProfile={() => router.push("/profile")} onOpenDashboard={() => router.push("/")} onOpenIngestion={() => router.push("/ingestion")} />;
   }
 
   return (

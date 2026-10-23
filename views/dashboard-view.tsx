@@ -9,6 +9,7 @@ type DashboardViewProps = {
   dashboard: FinancialDashboard;
   user: AuthUser;
   dashboardError?: string;
+  recommendationsError?: string;
   onLogout: () => Promise<void>;
   onEditProfile: () => void;
   onOpenDashboard: () => void;
@@ -21,7 +22,45 @@ type DashboardViewProps = {
   children?: ReactNode;
 };
 
-export function DashboardView({ dashboard, user, dashboardError = "", onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, onUpdateAlert, filters = { periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 }, costCenters = [], onFiltersChange, activeSection = "Resumen", children }: DashboardViewProps) {
+function getForecastScale(forecast: FinancialDashboard["forecast"]): { min: number; max: number; step: number } {
+  const values = forecast.flatMap((point) => [point.lower, point.upper, point.projected]);
+  const rawMin = Math.min(0, ...values);
+  const rawMax = Math.max(0, ...values);
+  const rawStep = Math.max((rawMax - rawMin) / 4, 1);
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const fraction = rawStep / magnitude;
+  const step = (fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10) * magnitude;
+  let min = Math.floor(rawMin / step) * step;
+  let max = Math.ceil(rawMax / step) * step;
+  if (max <= min) {
+    min -= step;
+    max += step;
+  }
+  return { min, max, step };
+}
+
+function getForecastTicks(forecast: FinancialDashboard["forecast"]): number[] {
+  const { min, max, step } = getForecastScale(forecast);
+  const count = Math.round((max - min) / step);
+  return Array.from({ length: count + 1 }, (_, index) => max - step * index)
+    .map((tick) => Math.abs(tick) < step / 1000 ? 0 : tick);
+}
+
+function getForecastPercent(value: number, forecast: FinancialDashboard["forecast"]): number {
+  const { min, max } = getForecastScale(forecast);
+  return ((value - min) / (max - min)) * 100;
+}
+
+function formatForecastAmount(value: number): string {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+export function DashboardView({ dashboard, user, dashboardError = "", recommendationsError = "", onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, onUpdateAlert, filters = { periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 }, costCenters = [], onFiltersChange, activeSection = "Resumen", children }: DashboardViewProps) {
   const [activeNav, setActiveNav] = useState<string>(activeSection);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() =>
@@ -174,15 +213,13 @@ export function DashboardView({ dashboard, user, dashboardError = "", onLogout, 
               <div className="panel-heading">
                 <div>
                   <p className="eyebrow">PROYECCIÓN</p>
-                  <h2>Flujo de caja</h2>
+                  <h2>Flujo neto mensual</h2>
                 </div>
                 <div className="legend">
                   <span>
-                    <i className="legend-line actual" />Real
-                  </span>
-                  <span>
                     <i className="legend-line projected" />Proyectado
                   </span>
+                  <span><i className="legend-band" />Intervalo 80 %</span>
                 </div>
               </div>
 
@@ -191,32 +228,46 @@ export function DashboardView({ dashboard, user, dashboardError = "", onLogout, 
               ) : (
               <>
               <div className="forecast-summary">
-                <strong>{dashboard.forecast.length} días</strong>
+                <strong>{dashboard.forecastDays} días</strong>
                 <span>de proyección calculada</span>
               </div>
               <div className="chart">
                 <div className="chart-y">
-                  <span>$10M</span>
-                  <span>$7.5M</span>
-                  <span>$5M</span>
-                  <span>$2.5M</span>
-                  <span>$0</span>
+                  {getForecastTicks(dashboard.forecast).map((tick) => (
+                    <span key={tick}>{formatForecastAmount(tick)}</span>
+                  ))}
                 </div>
 
                 <div className="chart-body">
                   <div className="chart-grid-lines">
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                    <i />
+                    {getForecastTicks(dashboard.forecast).map((tick) => (
+                      <i
+                        className={tick === 0 ? "zero" : ""}
+                        key={tick}
+                        style={{ bottom: `${getForecastPercent(tick, dashboard.forecast)}%` }}
+                      />
+                    ))}
                   </div>
                   <div className="bars">
                     {dashboard.forecast.map((point) => (
-                      <div className={`bar-group ${point.actual ? "past" : "future"}`} key={point.month}>
-                        <div className="confidence" style={{ height: `${point.upper * 9}%`, bottom: `${point.lower * 3.5}%` }} />
-                        <div className="bar" style={{ height: `${point.projected * 8.5}%` }} />
-                        <span>{point.month}</span>
+                      <div className="bar-group future" key={point.month}>
+                        <div
+                          className="confidence"
+                          title={`Intervalo estimado ${point.month}: ${formatForecastAmount(point.lower)} a ${formatForecastAmount(point.upper)}`}
+                          style={{
+                            height: `${getForecastPercent(point.upper, dashboard.forecast) - getForecastPercent(point.lower, dashboard.forecast)}%`,
+                            bottom: `${getForecastPercent(point.lower, dashboard.forecast)}%`,
+                          }}
+                        />
+                        <div
+                          className={`bar ${point.projected < 0 ? "negative" : ""}`}
+                          title={`${point.month}: ${formatForecastAmount(point.projected)}`}
+                          style={{
+                            height: `${Math.abs(getForecastPercent(point.projected, dashboard.forecast) - getForecastPercent(0, dashboard.forecast))}%`,
+                            bottom: `${Math.min(getForecastPercent(point.projected, dashboard.forecast), getForecastPercent(0, dashboard.forecast))}%`,
+                          }}
+                        />
+                        <span title={`${point.month}: ${point.days} días proyectados`}>{point.month} · {point.days}d</span>
                       </div>
                     ))}
                   </div>
@@ -224,7 +275,7 @@ export function DashboardView({ dashboard, user, dashboardError = "", onLogout, 
               </div>
 
               <div className="chart-note">
-                <span className="note-mark">i</span> El intervalo de confianza se amplía a medida que avanza la proyección.
+                <span className="note-mark">i</span> Flujo neto en MXN, no saldo de caja; cada mes muestra solo los días incluidos en el horizonte.
               </div>
               </>
               )}
@@ -245,7 +296,9 @@ export function DashboardView({ dashboard, user, dashboardError = "", onLogout, 
             </div>
 
             {dashboard.recommendations.length === 0 ? (
-              <p className="data-empty">No hay recomendaciones para mostrar.</p>
+              <p className={recommendationsError ? "auth-error" : "data-empty"} role={recommendationsError ? "alert" : undefined}>
+                {recommendationsError || "No hay recomendaciones para mostrar."}
+              </p>
             ) : (
               <div className="recommendations-list">
                 {dashboard.recommendations.map((recommendation) => (

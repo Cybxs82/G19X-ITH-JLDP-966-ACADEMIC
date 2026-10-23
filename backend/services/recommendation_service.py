@@ -318,6 +318,19 @@ def _persist_recommendations(
     ]
 
 
+def _sync_recommendation_id_sequence(cursor: Any) -> None:
+    cursor.execute(
+        """
+        SELECT setval(
+            pg_get_serial_sequence('recomendaciones_ia', 'id'),
+            GREATEST(COALESCE((SELECT MAX(id) FROM recomendaciones_ia), 1), sequence_state.last_value),
+            COALESCE((SELECT MAX(id) FROM recomendaciones_ia), 0) > 0 OR sequence_state.is_called
+        )
+        FROM recomendaciones_ia_id_seq AS sequence_state
+        """
+    )
+
+
 def generate_recommendations(user_id: Optional[UUID] = None) -> List[Dict[str, Any]]:
     """Genera y guarda recomendaciones explicables con evidencia de datos financieros."""
     with get_db_connection() as connection:
@@ -335,6 +348,7 @@ def generate_recommendations(user_id: Optional[UUID] = None) -> List[Dict[str, A
                 missing_kpi_codes=missing_kpi_codes,
                 forecast_unavailable_reason=forecast_unavailable_reason,
             )
+            _sync_recommendation_id_sequence(cursor)
             persisted = _persist_recommendations(cursor, recommendations, user_id)
             connection.commit()
     return persisted

@@ -65,12 +65,21 @@ class ForecastPointResponse(BaseModel):
     upper_bound: Optional[Decimal] = None
 
 
+class MonthlyForecastPointResponse(BaseModel):
+    period: date
+    days: int
+    predicted_value: Decimal
+    lower_bound: Decimal
+    upper_bound: Decimal
+
+
 class ForecastResponse(BaseModel):
     forecast_run_id: int
     model_name: str
     generated_at: datetime
     horizon_days: int
     values: List[ForecastPointResponse]
+    monthly_values: List[MonthlyForecastPointResponse] = Field(default_factory=list)
 
 
 class AlertResponse(BaseModel):

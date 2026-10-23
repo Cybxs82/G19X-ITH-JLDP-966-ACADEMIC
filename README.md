@@ -44,11 +44,11 @@ Antes de ejecutar la plataforma, **es necesario utilizar el esquema de base de d
 
 El punto de entrada es [`main.py`](main.py). La API expone documentación OpenAPI en `/docs` y estos recursos bajo `/api/v1`:
 
-- `GET /dashboard`: resumen con KPIs, forecast, alertas y recomendaciones.
+- `GET /dashboard`: resumen con KPIs, forecast, alertas y recomendaciones; acepta `period_from`, `period_to`, `cost_center_id` y `horizon_days` (`30`, `60` o `90`).
 - `GET /kpis`: KPIs filtrables por periodo.
 - `GET /forecast?days=90`: proyección de flujo de caja a 30, 60 o 90 días.
 - `GET /alerts` y `PATCH /alerts/{id}`: consulta y atención de alertas.
-- `GET /recommendations` y `POST /feedback`: recomendaciones y feedback del CFO.
+- `GET /recommendations` genera y persiste las recomendaciones de reglas explicables antes de devolverlas; `POST /feedback` registra feedback del CFO. El dashboard consulta este endpoint para mostrar las recomendaciones oficiales.
 - `POST /sync`: registro de una corrida de sincronización.
 - `POST /ingestion/files?source_type=erp`: carga automatizada de archivos `.xlsx`, `.csv` o `.pdf`.
 - `POST /ingestion/documents`: carga autenticada de documentos ERP PDF, CSV o Excel; conserva el texto/payload extraído en staging sin normalizarlo ni recalcular KPIs.
@@ -56,7 +56,7 @@ El punto de entrada es [`main.py`](main.py). La API expone documentación OpenAP
 - `DELETE /ingestion/practice-data`: elimina las cargas cuyo nombre de archivo inicia con `practica_` y actualiza los indicadores derivados.
 - `GET /health`: health check.
 
-El MVP requiere importar movimientos bancarios y presupuestos para calcular desviaciones. El forecast usa regresión lineal diaria, se habilita con al menos 180 días recientes de movimientos bancarios y reporta un intervalo predictivo del 80 % y MAE de backtest a 30 días. Sin datos suficientes, la API devuelve una serie vacía. Los movimientos netos bancarios no se presentan como saldo de caja porque aún no se captura el saldo inicial.
+El MVP requiere importar movimientos bancarios y presupuestos para calcular desviaciones. El forecast usa regresión lineal diaria sobre al menos 180 días de movimientos bancarios hasta `period_to` (el filtro `period_from` limita KPIs y alertas, pero no recorta el histórico necesario para proyectar). `horizon_days` determina si el endpoint devuelve 30, 60 o 90 días. Además de la serie diaria, la API entrega agregados mensuales con intervalos de predicción calculados para la suma del mes; el resultado es flujo neto estimado, no saldo de caja, porque aún no se captura el saldo inicial. El backend reporta intervalos predictivos del 80 % y MAE de backtest a 30 días. Sin histórico suficiente, la API devuelve series vacías.
 
 El diseño del MVP contempla resúmenes ejecutivos y recomendaciones sin IA generativa ni servicios de pago: se generarán mediante reglas explicables a partir de alertas, KPIs y forecast calculados con datos reales. Si faltan datos para una regla o el forecast no está disponible, se deberá indicar en lugar de inventar cifras.
 

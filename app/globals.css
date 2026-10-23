@@ -485,20 +485,23 @@ h2 { font-size: 18px; }
 .legend span { align-items: center; display: flex; gap: 5px; }
 .legend-line { border-top: 2px solid var(--teal); display: inline-block; width: 17px; }
 .legend-line.projected { border-color: var(--amber); border-style: dashed; }
+.legend-band { background: rgba(233, 170, 75, 0.25); display: inline-block; height: 10px; width: 12px; }
 .forecast-summary { align-items: baseline; display: flex; gap: 11px; margin-top: 17px; }
 .forecast-summary strong { font-family: 'Space Grotesk', sans-serif; font-size: 25px; }
 .forecast-summary span { color: var(--muted); font-size: 10px; }
 .forecast-summary b { color: var(--teal); }
 .chart { display: flex; height: 202px; margin-top: 13px; }
-.chart-y { color: #a3afb0; display: flex; flex-direction: column; font-size: 9px; justify-content: space-between; padding: 0 10px 19px 0; text-align: right; width: 39px; }
+.chart-y { color: #a3afb0; display: flex; flex-direction: column; font-size: 9px; justify-content: space-between; padding: 0 10px 19px 0; text-align: right; width: 56px; }
 .chart-body { flex: 1; position: relative; }
 .chart-grid-lines { bottom: 20px; display: flex; flex-direction: column; justify-content: space-between; left: 0; position: absolute; right: 0; top: 0; }
-.chart-grid-lines i { border-top: 1px dashed #e3e9e8; }
-.bars { align-items: end; bottom: 0; display: flex; gap: 5px; height: 100%; justify-content: space-around; left: 0; position: absolute; right: 0; }
+.chart-grid-lines i { border-top: 1px dashed #e3e9e8; position: absolute; width: 100%; }
+.chart-grid-lines i.zero { border-top-style: solid; border-color: #a3afb0; }
+.bars { align-items: end; bottom: 20px; display: flex; gap: 5px; justify-content: space-around; left: 0; position: absolute; right: 0; top: 0; }
 .bar-group { align-items: center; display: flex; flex: 1; height: 100%; justify-content: end; position: relative; }
-.bar-group > span { bottom: 0; color: #96a3a3; font-size: 9px; position: absolute; }
-.bar { background: var(--teal); border-radius: 3px 3px 0 0; margin-bottom: 20px; max-width: 14px; opacity: .85; position: relative; width: 56%; z-index: 1; }
+.bar-group > span { bottom: -20px; color: #96a3a3; font-size: 9px; position: absolute; white-space: nowrap; }
+.bar { background: var(--teal); border-radius: 3px 3px 0 0; left: 22%; max-width: 14px; opacity: .85; position: absolute; width: 56%; z-index: 1; }
 .future .bar { background: var(--amber); }
+.bar.negative { background: var(--coral); border-radius: 0 0 3px 3px; }
 .confidence { background: rgba(233, 170, 75, 0.25); max-width: 25px; opacity: .5; position: absolute; width: 85%; }
 .chart-note { align-items: center; background: var(--panel-soft); border-radius: 10px; color: var(--muted); display: flex; font-size: 10px; gap: 7px; margin-top: 14px; padding: 10px 12px; }
 .note-mark { align-items: center; background: var(--teal); border-radius: 50%; color: white; display: inline-flex; font-size: 9px; height: 18px; justify-content: center; width: 18px; }

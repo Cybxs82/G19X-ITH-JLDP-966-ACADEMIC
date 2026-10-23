@@ -97,17 +97,51 @@ def test_dashboard_propagates_date_and_center_filters(monkeypatch, analyst_sessi
     monkeypatch.setattr(repository, "forecast", fake_forecast)
     monkeypatch.setattr(repository, "list_alerts", fake_alerts)
     monkeypatch.setattr(repository, "list_recommendations", lambda: [])
+    monkeypatch.setattr(financial_controller, "generate_recommendations", lambda: [])
 
     response = client.get(
         "/api/v1/dashboard",
-        params={"period_from": "2026-04-01", "period_to": "2026-09-30", "cost_center_id": 4},
+        params={"period_from": "2026-04-01", "period_to": "2026-09-30", "cost_center_id": 4, "horizon_days": 60},
     )
 
     assert response.status_code == 200
     expected_filters = (date(2026, 4, 1), date(2026, 9, 30), 4)
     assert captured["kpis"] == expected_filters
     assert captured["alerts"] == expected_filters
-    assert captured["forecast"] == (90, *expected_filters)
+    assert captured["forecast"] == (60, *expected_filters)
+
+
+def test_dashboard_rejects_unsupported_forecast_horizon(analyst_session) -> None:
+    response = client.get("/api/v1/dashboard", params={"horizon_days": 45})
+
+    assert response.status_code == 422
+
+
+def test_dashboard_does_not_generate_recommendations(monkeypatch, analyst_session) -> None:
+    generated = []
+    monkeypatch.setattr(repository, "list_kpis", lambda *args: [])
+    monkeypatch.setattr(repository, "forecast", lambda *args: ForecastResponse(
+        forecast_run_id=0,
+        model_name="sin_datos",
+        generated_at=datetime.now(timezone.utc),
+        horizon_days=args[0],
+        values=[],
+    ))
+    monkeypatch.setattr(repository, "list_alerts", lambda **kwargs: [])
+    monkeypatch.setattr(repository, "list_recommendations", lambda: [])
+    monkeypatch.setattr(type(repository), "last_sync", property(lambda self: None))
+
+    def fake_generate_recommendations():
+        generated.append(True)
+        return []
+
+    monkeypatch.setattr(financial_controller, "generate_recommendations", fake_generate_recommendations)
+
+    response = client.get("/api/v1/dashboard")
+
+    assert response.status_code == 200
+    assert generated == []
+    assert response.json()["recommendations"] == []
 
 
 def test_alert_can_be_attended(monkeypatch, analyst_session) -> None:
@@ -215,6 +249,26 @@ def test_generate_recommendations_requires_session() -> None:
     response = client.post("/api/v1/recommendations/generate")
 
     assert response.status_code == 401
+
+
+def test_get_recommendations_generates_rules_before_listing(monkeypatch, analyst_session) -> None:
+    calls = []
+
+    def fake_generate_recommendations():
+        calls.append("generate")
+
+    def fake_list_recommendations(period):
+        calls.append(("list", period))
+        return []
+
+    monkeypatch.setattr(financial_controller, "generate_recommendations", fake_generate_recommendations)
+    monkeypatch.setattr(repository, "list_recommendations", fake_list_recommendations)
+
+    response = client.get("/api/v1/recommendations", params={"period": "2026-10-01"})
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert calls == ["generate", ("list", date(2026, 10, 1))]
 
 
 @pytest.mark.parametrize("role", ["cfo", "administrador"])

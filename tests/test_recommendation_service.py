@@ -9,6 +9,7 @@ from backend.services.recommendation_service import (
     _build_recommendations,
     _persist_recommendations,
 )
+from backend.repositories.financial_repository import _calculate_kpi_change
 
 
 def test_rules_generate_evidence_based_recommendations() -> None:
@@ -85,6 +86,27 @@ def test_rules_do_not_recommend_when_values_are_not_outside_thresholds() -> None
     ]
 
     assert _build_recommendations([], kpis, None) == []
+
+
+def test_kpi_change_uses_percentage_points_for_rate_kpis() -> None:
+    assert _calculate_kpi_change(
+        "margen_operativo",
+        Decimal("24.2866"),
+        Decimal("-19.8436"),
+    ) == Decimal("44.1302")
+    assert _calculate_kpi_change(
+        "desviacion_presupuestal",
+        Decimal("101.8605"),
+        Decimal("256.3455"),
+    ) == Decimal("-154.4850")
+
+
+def test_kpi_change_uses_absolute_previous_value_for_currency() -> None:
+    assert _calculate_kpi_change(
+        "flujo_neto_bancario",
+        Decimal("881000"),
+        Decimal("1615700"),
+    ).quantize(Decimal("0.01")) == Decimal("-45.47")
 
 
 def test_missing_sources_are_reported_without_invented_values() -> None:
@@ -213,7 +235,9 @@ def test_generate_recommendations_persists_explicit_missing_data_notice(monkeypa
 
         def execute(self, statement, parameters=None) -> None:
             normalized = " ".join(statement.split()).lower()
-            if normalized.startswith("select exists"):
+            if normalized.startswith("select setval"):
+                self.result = None
+            elif normalized.startswith("select exists"):
                 self.result = (False,)
             elif normalized.startswith("select id from recomendaciones_ia"):
                 self.result = None

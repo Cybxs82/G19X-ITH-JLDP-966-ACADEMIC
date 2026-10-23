@@ -252,6 +252,21 @@ def _refresh_kpis(cursor: Any) -> None:
         "UPDATE definiciones_kpi SET codigo = 'flujo_neto_bancario', nombre = 'Flujo neto bancario', descripcion_formula = 'Suma mensual de movimientos bancarios; no representa saldo sin saldo inicial' WHERE codigo = 'liquidez_inmediata'"
     )
     cursor.execute(
+        """
+        UPDATE definiciones_kpi
+        SET descripcion_formula = '(Ingresos menos gastos operativos) / ingresos'
+        WHERE codigo = 'margen_operativo'
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE definiciones_kpi
+        SET nombre = 'Ingresos del mes',
+            descripcion_formula = 'Suma de ingresos del mes'
+        WHERE codigo = 'ingresos_acumulados'
+        """
+    )
+    cursor.execute(
         "SELECT id, codigo FROM definiciones_kpi WHERE codigo IN ('flujo_neto_bancario', 'margen_operativo', 'ingresos_acumulados', 'desviacion_presupuestal')"
     )
     definition_ids = {code: definition_id for definition_id, code in cursor.fetchall()}

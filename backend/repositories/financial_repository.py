@@ -19,9 +19,22 @@ from ..models.schemas import (
     ForecastPointResponse,
     ForecastResponse,
     KpiResponse,
+    MonthlyForecastPointResponse,
     RecommendationResponse,
     SyncResponse,
 )
+
+
+def _calculate_kpi_change(
+    kpi_code: str,
+    current_value: Decimal,
+    previous_value: Decimal,
+) -> Optional[Decimal]:
+    if kpi_code in {"margen_operativo", "desviacion_presupuestal"}:
+        return current_value - previous_value
+    if previous_value == 0:
+        return None
+    return (current_value - previous_value) / abs(previous_value) * Decimal("100")
 
 
 def _sync_alert_id_sequence(cursor: Any) -> None:
@@ -152,8 +165,8 @@ class PostgreSQLRepository:
                     INSERT INTO definiciones_kpi (id, codigo, nombre, categoria, descripcion_formula)
                     VALUES
                         (1, 'liquidez_inmediata', 'Liquidez inmediata', 'liquidez', 'Activo circulante / pasivo circulante'),
-                        (2, 'margen_operativo', 'Margen operativo', 'rentabilidad', 'EBITDA / ingresos totales'),
-                        (3, 'ingresos_acumulados', 'Ingresos acumulados', 'rentabilidad', 'Total de ingresos acumulados del periodo'),
+                        (2, 'margen_operativo', 'Margen operativo', 'rentabilidad', '(Ingresos menos gastos operativos) / ingresos'),
+                        (3, 'ingresos_acumulados', 'Ingresos del mes', 'rentabilidad', 'Suma de ingresos del mes'),
                         (4, 'desviacion_presupuestal', 'Desviación presupuestal', 'presupuesto', 'Desviación real frente al presupuesto')
                     ON CONFLICT (id) DO NOTHING
                     """
@@ -352,7 +365,7 @@ class PostgreSQLRepository:
 
         result: List[KpiResponse] = []
         for row in rows:
-            change_pct = self._compute_change_pct(row[2], row[5], row[3], row[6])
+            change_pct = self._compute_change_pct(row[1], row[5], row[6])
             result.append(
                 KpiResponse(
                     id=row[0],
@@ -367,8 +380,8 @@ class PostgreSQLRepository:
             )
         return result
 
-    def _compute_change_pct(self, kpi_name: str, period: date, category: str, cost_center_id: Optional[int]) -> Optional[Decimal]:
-        # La comparación se hace contra el mismo KPI en el periodo anterior si existe.
+    def _compute_change_pct(self, kpi_code: str, period: date, cost_center_id: Optional[int]) -> Optional[Decimal]:
+        """Return percentage-point changes for rate KPIs and relative changes otherwise."""
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -376,24 +389,22 @@ class PostgreSQLRepository:
                     SELECT kv.valor
                     FROM valores_kpi kv
                     JOIN definiciones_kpi kd ON kd.id = kv.definicion_kpi_id
-                                        WHERE kd.nombre = %s
-                                            AND kv.periodo < %s
-                                            AND kv.centro_costo_id IS NOT DISTINCT FROM %s
-                                        ORDER BY kv.periodo DESC
+                    WHERE kd.codigo = %s
+                      AND kv.periodo < %s
+                      AND kv.centro_costo_id IS NOT DISTINCT FROM %s
+                    ORDER BY kv.periodo DESC
                     LIMIT 1
                     """,
-                                        (kpi_name, period, cost_center_id),
+                    (kpi_code, period, cost_center_id),
                 )
                 prev_row = cursor.fetchone()
                 if prev_row is None:
                     return None
-                current_value = self._current_kpi_value(kpi_name, period, cost_center_id)
+                current_value = self._current_kpi_value(kpi_code, period, cost_center_id)
                 previous_value = Decimal(str(prev_row[0]))
-                if previous_value == 0:
-                    return None
-                return ((current_value - previous_value) / previous_value) * Decimal("100")
+                return _calculate_kpi_change(kpi_code, current_value, previous_value)
 
-    def _current_kpi_value(self, kpi_name: str, period: date, cost_center_id: Optional[int]) -> Decimal:
+    def _current_kpi_value(self, kpi_code: str, period: date, cost_center_id: Optional[int]) -> Decimal:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -401,12 +412,13 @@ class PostgreSQLRepository:
                     SELECT kv.valor
                     FROM valores_kpi kv
                     JOIN definiciones_kpi kd ON kd.id = kv.definicion_kpi_id
-                                        WHERE kd.nombre = %s AND kv.periodo = %s
-                                            AND kv.centro_costo_id IS NOT DISTINCT FROM %s
+                    WHERE kd.codigo = %s
+                      AND kv.periodo = %s
+                      AND kv.centro_costo_id IS NOT DISTINCT FROM %s
                     ORDER BY kv.id DESC
                     LIMIT 1
                     """,
-                                        (kpi_name, period, cost_center_id),
+                    (kpi_code, period, cost_center_id),
                 )
                 row = cursor.fetchone()
                 if row is None:
@@ -454,11 +466,10 @@ class PostgreSQLRepository:
                     SELECT MIN(fecha_transaccion), MAX(fecha_transaccion)
                     FROM transacciones
                     WHERE tipo_fuente = 'banco'::fuente_tipo
-                      AND (%s::date IS NULL OR fecha_transaccion >= %s)
                       AND (%s::date IS NULL OR fecha_transaccion <= %s)
                       AND (%s::integer IS NULL OR centro_costo_id = %s)
                     """,
-                    (period_from, period_from, period_to, period_to, cost_center_id, cost_center_id),
+                    (period_to, period_to, cost_center_id, cost_center_id),
                 )
                 first_day, last_day = cursor.fetchone()
                 if first_day is None or last_day is None or (last_day - first_day).days + 1 < 180:
@@ -488,6 +499,7 @@ class PostgreSQLRepository:
                 generated_at=now,
                 horizon_days=horizon_days,
                 values=[],
+                monthly_values=[],
             )
         return ForecastResponse(
             forecast_run_id=0,
@@ -502,6 +514,16 @@ class PostgreSQLRepository:
                     upper_bound=point.upper_bound,
                 )
                 for point in forecast.values
+            ],
+            monthly_values=[
+                MonthlyForecastPointResponse(
+                    period=point.period,
+                    days=point.days,
+                    predicted_value=point.predicted_value,
+                    lower_bound=point.lower_bound,
+                    upper_bound=point.upper_bound,
+                )
+                for point in forecast.monthly_values
             ],
         )
 
@@ -613,14 +635,13 @@ class PostgreSQLRepository:
         )
 
     def list_recommendations(self, period: Optional[date] = None) -> List[RecommendationResponse]:
-        if not get_settings().enable_demo_data:
-            return []
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 query = """
                     SELECT id, usuario_id, periodo, situacion, impacto, recomendacion_texto, prioridad, evidencia, version_prompt, texto_generado, nombre_modelo, generado_en
                     FROM recomendaciones_ia
-                    WHERE %s::date IS NULL OR periodo = %s
+                    WHERE evidencia->>'regla' IS NOT NULL
+                      AND (%s::date IS NULL OR periodo = %s)
                     ORDER BY generado_en DESC
                 """
                 cursor.execute(query, (period, period))

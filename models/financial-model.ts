@@ -11,7 +11,7 @@ export type Kpi = {
 
 export type ForecastPoint = {
   month: string;
-  actual?: number;
+  days: number;
   projected: number;
   lower: number;
   upper: number;
@@ -48,6 +48,7 @@ export type DashboardFilters = {
 export type FinancialDashboard = {
   period: string;
   lastSync: string;
+  forecastDays: number;
   kpis: Kpi[];
   forecast: ForecastPoint[];
   alerts: Alert[];
@@ -57,6 +58,7 @@ export type FinancialDashboard = {
 export const financialDashboard: FinancialDashboard = {
   period: "Sin datos",
   lastSync: "Sin cargas",
+  forecastDays: 0,
   kpis: [],
   forecast: [],
   alerts: [],
