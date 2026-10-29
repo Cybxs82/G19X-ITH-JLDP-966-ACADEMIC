@@ -156,7 +156,6 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
 
     @router.get("/recommendations", response_model=List[RecommendationResponse], dependencies=[Depends(require_authenticated_user)])
     def get_recommendations(period: Optional[date] = None) -> List[RecommendationResponse]:
-        generate_recommendations()
         return repository.list_recommendations(period)
 
     @router.post(
@@ -187,6 +186,7 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
             result = ingest_file(file.filename or "financial-file", await file.read(), source_type)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+        generate_recommendations()
         return IngestionResponse(**result)
 
     @router.post("/ingestion/documents", response_model=IngestionResponse, status_code=202, dependencies=[Depends(require_roles("analista", "administrador"))])
@@ -205,6 +205,7 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
             result = ingest_erp_document(file_name, content)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+        generate_recommendations()
         return IngestionResponse(**result)
 
     @router.post("/ingestion/budgets", response_model=IngestionResponse, status_code=202, dependencies=[Depends(require_roles("analista", "administrador"))])
@@ -223,6 +224,7 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
             result = ingest_budget_file(file_name, content)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+        generate_recommendations()
         return IngestionResponse(**result)
 
     @router.delete(
@@ -231,7 +233,9 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
         dependencies=[Depends(require_roles("analista", "administrador"))],
     )
     def remove_practice_data() -> Dict[str, int]:
-        return delete_practice_data()
+        deleted_counts = delete_practice_data()
+        generate_recommendations()
+        return deleted_counts
 
     @router.get(
         "/dashboard",

@@ -231,12 +231,23 @@ def test_practice_data_cleanup_returns_deleted_record_counts(monkeypatch, analys
         "sync_logs": 3,
         "data_sources": 3,
     }
-    monkeypatch.setattr(financial_controller, "delete_practice_data", lambda: counts)
+    calls = []
+
+    def fake_delete_practice_data():
+        calls.append("delete")
+        return counts
+
+    def fake_generate_recommendations():
+        calls.append("generate")
+
+    monkeypatch.setattr(financial_controller, "delete_practice_data", fake_delete_practice_data)
+    monkeypatch.setattr(financial_controller, "generate_recommendations", fake_generate_recommendations)
 
     response = client.delete("/api/v1/ingestion/practice-data")
 
     assert response.status_code == 200
     assert response.json() == counts
+    assert calls == ["delete", "generate"]
 
 
 def test_dashboard_requires_session() -> None:
@@ -251,24 +262,61 @@ def test_generate_recommendations_requires_session() -> None:
     assert response.status_code == 401
 
 
-def test_get_recommendations_generates_rules_before_listing(monkeypatch, analyst_session) -> None:
+def test_get_recommendations_only_lists_existing_recommendations(monkeypatch, analyst_session) -> None:
     calls = []
-
-    def fake_generate_recommendations():
-        calls.append("generate")
 
     def fake_list_recommendations(period):
         calls.append(("list", period))
         return []
 
-    monkeypatch.setattr(financial_controller, "generate_recommendations", fake_generate_recommendations)
+    monkeypatch.setattr(financial_controller, "generate_recommendations", lambda: calls.append("generate"))
     monkeypatch.setattr(repository, "list_recommendations", fake_list_recommendations)
 
     response = client.get("/api/v1/recommendations", params={"period": "2026-10-01"})
 
     assert response.status_code == 200
     assert response.json() == []
-    assert calls == ["generate", ("list", date(2026, 10, 1))]
+    assert calls == [("list", date(2026, 10, 1))]
+
+
+@pytest.mark.parametrize(
+    ("route", "ingestion_function"),
+    [
+        ("/api/v1/ingestion/files", "ingest_file"),
+        ("/api/v1/ingestion/documents", "ingest_erp_document"),
+        ("/api/v1/ingestion/budgets", "ingest_budget_file"),
+    ],
+)
+def test_ingestion_generates_recommendations_after_loading(
+    monkeypatch,
+    analyst_session,
+    route,
+    ingestion_function,
+) -> None:
+    calls = []
+    monkeypatch.setattr(
+        financial_controller,
+        ingestion_function,
+        lambda *args: calls.append("ingest") or {
+            "sync_log_id": 1,
+            "data_source_id": 1,
+            "rows_ingested": 1,
+            "status": "completada",
+        },
+    )
+    monkeypatch.setattr(
+        financial_controller,
+        "generate_recommendations",
+        lambda: calls.append("generate"),
+    )
+
+    response = client.post(
+        route,
+        files={"file": ("financial.csv", b"periodo,monto\n2026-01-01,10", "text/csv")},
+    )
+
+    assert response.status_code == 202
+    assert calls == ["ingest", "generate"]
 
 
 @pytest.mark.parametrize("role", ["cfo", "administrador"])

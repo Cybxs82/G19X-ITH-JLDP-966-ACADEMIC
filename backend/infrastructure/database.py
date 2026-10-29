@@ -17,12 +17,10 @@ def _psycopg_url(database_url: str) -> str:
 
 @contextmanager
 def get_db_connection() -> Generator[Any, None, None]:
-    """Abre una conexion por operacion y la cierra siempre al terminar."""
     settings = get_settings()
     if not settings.database_url:
         raise RuntimeError(
             "Falta configurar CFO_DATABASE_URL. Define una URL de conexión a PostgreSQL "
-            "en el archivo .env o en las variables de entorno."
         )
 
     import psycopg2
@@ -38,7 +36,6 @@ def get_db_connection() -> Generator[Any, None, None]:
 
 
 def check_database_connection() -> Tuple[bool, Optional[str]]:
-    """Verifica conectividad sin dejar una conexion abierta."""
     try:
         with get_db_connection() as connection:
             with connection.cursor() as cursor:
