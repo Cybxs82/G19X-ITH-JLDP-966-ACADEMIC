@@ -47,10 +47,8 @@ type ApiRecommendation = {
   evidence: Record<string, unknown> | null;
 };
 
-const apiUrl = process.env.CFO_API_URL ?? "http://localhost:8000/api/v1";
-
 export async function getCostCenters(): Promise<CostCenter[]> {
-  const response = await fetch(`${apiUrl}/cost-centers`, { credentials: "include", cache: "no-store" });
+  const response = await fetch("/api/cost-centers", { credentials: "same-origin", cache: "no-store" });
   if (!response.ok) throw new Error(`Cost center API returned ${response.status}`);
   return (await response.json()) as CostCenter[];
 }
@@ -150,9 +148,9 @@ export async function getFinancialDashboard(filters: DashboardFilters): Promise<
 }
 
 export async function updateAlertStatus(alertId: number, status: Alert["status"], comment: string): Promise<void> {
-  const response = await fetch(`${apiUrl}/alerts/${alertId}`, {
+  const response = await fetch(`/api/alerts/${alertId}`, {
     method: "PATCH",
-    credentials: "include",
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status, comment: comment || undefined }),
   });
