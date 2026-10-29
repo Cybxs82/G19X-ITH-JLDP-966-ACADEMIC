@@ -48,7 +48,7 @@ El punto de entrada es [`main.py`](main.py). La API expone documentación OpenAP
 - `GET /kpis`: KPIs filtrables por periodo.
 - `GET /forecast?days=90`: proyección de flujo de caja a 30, 60 o 90 días.
 - `GET /alerts` y `PATCH /alerts/{id}`: consulta y atención de alertas.
-- `GET /recommendations` genera y persiste las recomendaciones de reglas explicables antes de devolverlas; `POST /feedback` registra feedback del CFO. El dashboard consulta este endpoint para mostrar las recomendaciones oficiales.
+- `GET /recommendations`: consulta las recomendaciones guardadas sin generarlas; `POST /recommendations/generate`: las genera y persiste (solo CFO o administrador); `POST /feedback`: registra feedback del usuario. Las cargas y la eliminación de datos de práctica actualizan las recomendaciones. El dashboard consulta el endpoint GET para mostrarlas.
 - `POST /sync`: registro de una corrida de sincronización.
 - `POST /ingestion/files?source_type=erp`: carga automatizada de archivos `.xlsx`, `.csv` o `.pdf`.
 - `POST /ingestion/documents`: carga autenticada de documentos ERP PDF, CSV o Excel; conserva el texto/payload extraído en staging sin normalizarlo ni recalcular KPIs.
@@ -58,7 +58,7 @@ El punto de entrada es [`main.py`](main.py). La API expone documentación OpenAP
 
 El MVP requiere importar movimientos bancarios y presupuestos para calcular desviaciones. El forecast usa regresión lineal diaria sobre al menos 180 días de movimientos bancarios hasta `period_to` (el filtro `period_from` limita KPIs y alertas, pero no recorta el histórico necesario para proyectar). `horizon_days` determina si el endpoint devuelve 30, 60 o 90 días. Además de la serie diaria, la API entrega agregados mensuales con intervalos de predicción calculados para la suma del mes; el resultado es flujo neto estimado, no saldo de caja, porque aún no se captura el saldo inicial. El backend reporta intervalos predictivos del 80 % y MAE de backtest a 30 días. Sin histórico suficiente, la API devuelve series vacías.
 
-El diseño del MVP contempla resúmenes ejecutivos y recomendaciones sin IA generativa ni servicios de pago: se generarán mediante reglas explicables a partir de alertas, KPIs y forecast calculados con datos reales. Si faltan datos para una regla o el forecast no está disponible, se deberá indicar en lugar de inventar cifras.
+El MVP ofrece resúmenes ejecutivos y recomendaciones sin IA generativa ni servicios de pago: se generan mediante reglas explicables a partir de alertas, KPIs y forecast calculados con datos reales, después de las cargas y de eliminar datos de práctica. Si faltan datos para una regla o el forecast no está disponible, el sistema lo indica en lugar de inventar cifras.
 
 La conexión PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /health`. La Fase 2 conserva el archivo recibido en `datos_temporales_erp` o `datos_temporales_banco`, normaliza cuentas, centros de costo y transacciones, registra filas rechazadas en `registros_sincronizacion_rechazados` y recalcula los KPIs desde `transacciones`. La carga del seed demo está desactivada por omisión (`CFO_ENABLE_DEMO_DATA=false`); puede habilitarse explícitamente para desarrollo. No se guardan credenciales en el código.
 

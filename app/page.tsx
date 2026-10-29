@@ -103,7 +103,19 @@ export default function Home() {
 
   async function handleAlertUpdate(alertId: number, status: "nueva" | "en_revision" | "cerrada" | "falsa", comment: string) {
     await updateAlertStatus(alertId, status, comment);
-    setDashboard(await getFinancialDashboard(filters));
+    const currentDashboard = await getFinancialDashboard(filters);
+    setDashboard((current) => ({
+      ...currentDashboard,
+      recommendations: current.recommendations,
+    }));
+    void getRecommendations()
+      .then((recommendations) => {
+        setDashboard((current) => ({ ...current, recommendations }));
+        setRecommendationsError("");
+      })
+      .catch((error) => {
+        setRecommendationsError(error instanceof Error ? error.message : "No se pudieron cargar las recomendaciones.");
+      });
   }
 
   if (authState === "checking") {

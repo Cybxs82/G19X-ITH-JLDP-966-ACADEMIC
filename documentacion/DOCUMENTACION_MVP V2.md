@@ -253,17 +253,17 @@ Todos los endpoints responden en formato JSON y siguen estándares REST bajo `/a
 | Endpoint | Método | Entrada | Salida / Acción |
 |---|---|---|---|
 | `/health` | `GET` | Ninguna | Estado del servicio local y verificación activa `SELECT 1` a PostgreSQL. |
-| `/api/v1/dashboard` | `GET` | `period_from`, `period_to`, `cost_center_id` | Resumen de KPIs, forecast de 90 días, alertas y recomendaciones guardadas; estas últimas no se leen cuando `CFO_ENABLE_DEMO_DATA=false`. |
+| `/api/v1/dashboard` | `GET` | `period_from`, `period_to`, `cost_center_id` | Resumen de KPIs, forecast de 90 días, alertas y recomendaciones guardadas, independientemente de `CFO_ENABLE_DEMO_DATA`. |
 | `/api/v1/kpis` | `GET` | `period_from`, `period_to` | KPIs calculados, con comparativa contra el periodo anterior. |
 | `/api/v1/forecast` | `GET` | `days=30\|60\|90` | Puntos diarios de flujo neto con `lower_bound` y `upper_bound` (80 %). La respuesta no incluye MAE. |
 | `/api/v1/alerts` | `GET` | `status`, `severity`, `period_from`, `period_to`, `cost_center_id` | Alertas presupuestarias detectadas (sin paginación). |
 | `/api/v1/alerts/{id}` | `PATCH` | `status`, `comment`, `responsible_id` | Atención y resolución de alertas por el analista. |
-| `/api/v1/recommendations` | `GET` | `period` (opcional) | Lista recomendaciones guardadas; actualmente devuelve vacío si `CFO_ENABLE_DEMO_DATA=false`. |
-| `/api/v1/recommendations/generate` | `POST` | Sesión autenticada | Evalúa las reglas explicables y persiste resultados, versión y evidencia en `recomendaciones_ia`. |
+| `/api/v1/recommendations` | `GET` | `period` (opcional); sesión autenticada | Solo consulta y devuelve las recomendaciones guardadas para el periodo; no las genera ni persiste. |
+| `/api/v1/recommendations/generate` | `POST` | Sesión autenticada con rol `cfo` o `administrador` | Evalúa las reglas explicables y persiste resultados, versión y evidencia en `recomendaciones_ia`. |
 | `/api/v1/feedback` | `POST` | `recommendation_id`, `user_id`, `feedback`, `comment` (opcional) | Registra retroalimentación autenticada del usuario sobre una recomendación. |
-| `/api/v1/ingestion/files` | `POST` | `source_type`, `file` | Procesa y normaliza archivos en tiempo real desde el equipo local. |
-| `/api/v1/ingestion/documents` | `POST` | `file` (PDF/CSV/Excel) | Ingresa un documento ERP compatible. |
-| `/api/v1/ingestion/budgets` | `POST` | `file` (CSV/Excel) | Ingesta metas presupuestarias por periodo, cuenta y centro de costo. |
+| `/api/v1/ingestion/files` | `POST` | `source_type`, `file` | Procesa y normaliza archivos en tiempo real desde el equipo local y actualiza las recomendaciones. |
+| `/api/v1/ingestion/documents` | `POST` | `file` (PDF/CSV/Excel) | Ingresa un documento ERP compatible y actualiza las recomendaciones. |
+| `/api/v1/ingestion/budgets` | `POST` | `file` (CSV/Excel) | Ingesta metas presupuestarias por periodo, cuenta y centro de costo, y actualiza las recomendaciones. |
 
 ---
 
