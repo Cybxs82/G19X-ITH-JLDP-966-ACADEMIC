@@ -62,15 +62,16 @@ El MVP ofrece resúmenes ejecutivos y recomendaciones sin IA generativa ni servi
 
 La conexión PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /health`. La Fase 2 conserva el archivo recibido en `datos_temporales_erp` o `datos_temporales_banco`, normaliza cuentas, centros de costo y transacciones, registra filas rechazadas en `registros_sincronizacion_rechazados` y recalcula los KPIs desde `transacciones`. La carga del seed demo está desactivada por omisión (`CFO_ENABLE_DEMO_DATA=false`); puede habilitarse explícitamente para desarrollo. No se guardan credenciales en el código.
 
-### Migración para rastrear y eliminar presupuestos de práctica
+### Migraciones de bases de datos existentes
 
-Antes de actualizar una base de datos existente, aplica una sola vez la migración que registra el archivo de origen de cada presupuesto:
+Aplica una sola vez las migraciones pendientes en orden. La primera registra el archivo de origen de cada presupuesto; la segunda conserva una recomendación por regla y periodo, transfiere su retroalimentación al registro conservado y evita duplicados futuros:
 
 ```powershell
 psql -U postgres -d todo_plataforma_cfo -f migrations\001_track_budget_data_source.sql
+psql -U postgres -d todo_plataforma_cfo -f migrations\002_deduplicate_recommendations_by_rule.sql
 ```
 
-En instalaciones nuevas, `schema.sql` ya incluye ese cambio. La acción **Eliminar datos de práctica** en Carga ERP solo elimina registros asociados a fuentes cuyo nombre de archivo inicia con `practica_`; los presupuestos importados conservan su fuente para no borrar presupuestos de otras cargas.
+En instalaciones nuevas, `schema.sql` incluye esas restricciones. La acción **Eliminar datos de práctica** en Carga ERP solo elimina registros asociados a fuentes cuyo nombre de archivo inicia con `practica_`; los presupuestos importados conservan su fuente para no borrar presupuestos de otras cargas.
 
 ### Ejecutar la API
 

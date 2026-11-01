@@ -350,6 +350,9 @@ CREATE INDEX idx_alertas_cuenta              ON alertas (cuenta_id);
 CREATE INDEX idx_alertas_responsable         ON alertas (responsable_id);
 CREATE INDEX idx_umbrales_alerta_cuenta      ON umbrales_alerta (cuenta_id);
 CREATE INDEX idx_umbrales_alerta_centro_costo ON umbrales_alerta (centro_costo_id);
+CREATE UNIQUE INDEX idx_recomendaciones_ia_periodo_regla
+    ON recomendaciones_ia (periodo, (evidencia->>'regla'))
+    WHERE evidencia->>'regla' IS NOT NULL;
 CREATE INDEX idx_recomendaciones_ia_periodo  ON recomendaciones_ia (periodo);
 CREATE INDEX idx_recomendaciones_ia_usuario  ON recomendaciones_ia (usuario_id);
 CREATE INDEX idx_recomendaciones_ia_evidencia_gin ON recomendaciones_ia USING GIN (evidencia);

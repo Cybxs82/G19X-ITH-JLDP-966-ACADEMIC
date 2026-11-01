@@ -72,74 +72,50 @@ class PostgreSQLRepository:
         )
         evidence = json.dumps(recommendation["evidencia"], ensure_ascii=False)
         generated_at = datetime.now(timezone.utc)
-        values = (
-            recommendation["situacion"],
-            recommendation["impacto"],
-            recommendation["recomendacion_texto"],
-            recommendation["prioridad"],
-            evidence,
-            prompt_version,
-            recommendation["regla"],
-            generated_text,
-            prompt_version,
-            generated_at,
-        )
-
         cursor.execute(
             """
-            SELECT id
-            FROM recomendaciones_ia
-            WHERE periodo = %s
-              AND usuario_id IS NOT DISTINCT FROM %s
-              AND evidencia->>'regla' = %s
-            ORDER BY id DESC
-            LIMIT 1
-            FOR UPDATE
+            INSERT INTO recomendaciones_ia (
+                usuario_id, periodo, situacion, impacto, recomendacion_texto,
+                prioridad, evidencia, version_prompt, prompt_utilizado,
+                texto_generado, nombre_modelo, generado_en
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
+            ON CONFLICT (periodo, (evidencia->>'regla'))
+                WHERE evidencia->>'regla' IS NOT NULL
+            DO UPDATE SET
+                usuario_id = COALESCE(EXCLUDED.usuario_id, recomendaciones_ia.usuario_id),
+                situacion = EXCLUDED.situacion,
+                impacto = EXCLUDED.impacto,
+                recomendacion_texto = EXCLUDED.recomendacion_texto,
+                prioridad = EXCLUDED.prioridad,
+                evidencia = EXCLUDED.evidencia,
+                version_prompt = EXCLUDED.version_prompt,
+                prompt_utilizado = EXCLUDED.prompt_utilizado,
+                texto_generado = EXCLUDED.texto_generado,
+                nombre_modelo = EXCLUDED.nombre_modelo,
+                generado_en = EXCLUDED.generado_en
+            RETURNING id, generado_en, usuario_id
             """,
-            (recommendation["periodo"], user_id_value, recommendation["regla"]),
+            (
+                user_id_value,
+                recommendation["periodo"],
+                recommendation["situacion"],
+                recommendation["impacto"],
+                recommendation["recomendacion_texto"],
+                recommendation["prioridad"],
+                evidence,
+                prompt_version,
+                recommendation["regla"],
+                generated_text,
+                prompt_version,
+                generated_at,
+            ),
         )
-        existing = cursor.fetchone()
-        if existing is None:
-            cursor.execute(
-                """
-                INSERT INTO recomendaciones_ia (
-                    usuario_id, periodo, situacion, impacto, recomendacion_texto,
-                    prioridad, evidencia, version_prompt, prompt_utilizado,
-                    texto_generado, nombre_modelo, generado_en
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
-                RETURNING id, generado_en
-                """,
-                (
-                    user_id_value,
-                    recommendation["periodo"],
-                    *values,
-                ),
-            )
-        else:
-            cursor.execute(
-                """
-                UPDATE recomendaciones_ia
-                SET situacion = %s,
-                    impacto = %s,
-                    recomendacion_texto = %s,
-                    prioridad = %s,
-                    evidencia = %s::jsonb,
-                    version_prompt = %s,
-                    prompt_utilizado = %s,
-                    texto_generado = %s,
-                    nombre_modelo = %s,
-                    generado_en = %s
-                WHERE id = %s
-                RETURNING id, generado_en
-                """,
-                (*values, existing[0]),
-            )
 
-        recommendation_id, persisted_at = cursor.fetchone()
+        recommendation_id, persisted_at, persisted_user_id = cursor.fetchone()
         return {
             "id": recommendation_id,
-            "user_id": user_id,
+            "user_id": persisted_user_id,
             "period": recommendation["periodo"],
             "situation": recommendation["situacion"],
             "impact": recommendation["impacto"],

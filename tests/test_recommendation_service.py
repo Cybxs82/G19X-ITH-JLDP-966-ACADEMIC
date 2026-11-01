@@ -132,20 +132,17 @@ def test_recommendations_are_persisted_as_rules_with_version_and_evidence() -> N
     generated_at = datetime.now(timezone.utc)
 
     class FakeCursor:
-        def __init__(self) -> None:
+        def __init__(self, persisted_user_id=None) -> None:
             self.parameters = []
             self.statements = []
-            self.last_statement = ""
+            self.persisted_user_id = persisted_user_id
 
         def execute(self, statement, parameters) -> None:
             self.statements.append(statement)
             self.parameters.append(parameters)
-            self.last_statement = " ".join(statement.split()).lower()
 
         def fetchone(self):
-            if self.last_statement.startswith("select id"):
-                return None
-            return 501, generated_at
+            return 501, generated_at, self.persisted_user_id
 
     recommendation = {
         "regla": "flujo_neto_bancario_negativo",
@@ -156,13 +153,15 @@ def test_recommendations_are_persisted_as_rules_with_version_and_evidence() -> N
         "prioridad": "alta",
         "evidencia": {"regla": "flujo_neto_bancario_negativo", "alertas_ids": [], "kpis_ids": [21]},
     }
-    cursor = FakeCursor()
     user_id = UUID("00000000-0000-0000-0000-000000000002")
+    cursor = FakeCursor(persisted_user_id=user_id)
 
     persisted = _persist_recommendations(cursor, [recommendation], user_id)
 
-    inserted_values = cursor.parameters[1]
-    assert "INSERT INTO recomendaciones_ia" in cursor.statements[1]
+    inserted_values = cursor.parameters[0]
+    assert len(cursor.statements) == 1
+    assert "INSERT INTO recomendaciones_ia" in cursor.statements[0]
+    assert "ON CONFLICT (periodo, (evidencia->>'regla'))" in cursor.statements[0]
     assert inserted_values[0] == str(user_id)
     assert inserted_values[6] == '{"regla": "flujo_neto_bancario_negativo", "alertas_ids": [], "kpis_ids": [21]}'
     assert inserted_values[7] == RULES_VERSION
@@ -179,22 +178,22 @@ def test_recommendations_are_persisted_as_rules_with_version_and_evidence() -> N
     assert persisted[0]["generated_at"] == generated_at
 
 
-def test_recommendation_generation_updates_existing_rule_instead_of_duplicating() -> None:
+def test_anonymous_and_cfo_generations_reuse_the_same_rule_record() -> None:
     generated_at = datetime.now(timezone.utc)
 
     class FakeCursor:
         def __init__(self) -> None:
             self.statements = []
             self.parameters = []
+            self.user_id = None
 
         def execute(self, statement, parameters) -> None:
-            self.statements.append(" ".join(statement.split()).lower())
+            self.statements.append(" ".join(statement.split()))
             self.parameters.append(parameters)
+            self.user_id = parameters[0] or self.user_id
 
         def fetchone(self):
-            if self.statements[-1].startswith("select id"):
-                return 501,
-            return 501, generated_at
+            return 501, generated_at, self.user_id
 
     recommendation = {
         "regla": "flujo_neto_bancario_negativo",
@@ -205,17 +204,19 @@ def test_recommendation_generation_updates_existing_rule_instead_of_duplicating(
         "prioridad": "alta",
         "evidencia": {"regla": "flujo_neto_bancario_negativo", "alertas_ids": [], "kpis_ids": [21]},
     }
+    cfo_user_id = UUID("00000000-0000-0000-0000-000000000002")
     cursor = FakeCursor()
 
-    saved = _persist_recommendations(
-        cursor,
-        [recommendation],
-        UUID("00000000-0000-0000-0000-000000000002"),
-    )
+    anonymous_saved = _persist_recommendations(cursor, [recommendation], None)
+    cfo_saved = _persist_recommendations(cursor, [recommendation], cfo_user_id)
 
     assert len(cursor.statements) == 2
-    assert cursor.statements[1].startswith("update recomendaciones_ia")
-    assert saved[0]["id"] == 501
+    for statement in cursor.statements:
+        assert "ON CONFLICT (periodo, (evidencia->>'regla'))" in statement
+        assert "usuario_id = COALESCE(EXCLUDED.usuario_id, recomendaciones_ia.usuario_id)" in statement
+    assert anonymous_saved[0]["id"] == cfo_saved[0]["id"] == 501
+    assert anonymous_saved[0]["user_id"] is None
+    assert str(cfo_saved[0]["user_id"]) == str(cfo_user_id)
 
 
 def test_generate_recommendations_persists_explicit_missing_data_notice(monkeypatch) -> None:
@@ -239,8 +240,6 @@ def test_generate_recommendations_persists_explicit_missing_data_notice(monkeypa
                 self.result = None
             elif normalized.startswith("select exists"):
                 self.result = (False,)
-            elif normalized.startswith("select id from recomendaciones_ia"):
-                self.result = None
             elif normalized.startswith("select id, periodo"):
                 self.rows = []
             elif normalized.startswith("select distinct on"):
@@ -249,7 +248,7 @@ def test_generate_recommendations_persists_explicit_missing_data_notice(monkeypa
                 self.result = (None, None)
             elif normalized.startswith("insert into recomendaciones_ia"):
                 self.inserted_values = parameters
-                self.result = (701, generated_at)
+                self.result = (701, generated_at, parameters[0])
             else:
                 raise AssertionError("Unexpected query: %s" % normalized)
 
