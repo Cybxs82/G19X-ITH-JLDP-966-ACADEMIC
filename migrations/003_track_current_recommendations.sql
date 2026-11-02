@@ -1,0 +1,5 @@
+ALTER TABLE recomendaciones_ia
+    ADD COLUMN IF NOT EXISTS vigente BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE recomendaciones_ia
+    ALTER COLUMN vigente SET DEFAULT TRUE;

@@ -292,6 +292,7 @@ CREATE TABLE recomendaciones_ia (
     recomendacion_texto TEXT NOT NULL,          -- acción concreta recomendada
     prioridad           prioridad_recomendacion NOT NULL DEFAULT 'media',
     evidencia           JSONB,                  -- referencias a valores_kpi.id / alertas.id que sustentan la recomendación
+    vigente             BOOLEAN NOT NULL DEFAULT TRUE,
     version_prompt      VARCHAR(50) NOT NULL,   -- nombre legado: versión de las reglas, por ejemplo 'reglas-v1'
     prompt_utilizado    TEXT NOT NULL,          -- nombre legado: regla y plantilla determinista usada
     texto_generado      TEXT NOT NULL,          -- nombre legado: texto resultante de la regla

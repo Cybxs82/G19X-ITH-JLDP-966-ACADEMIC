@@ -1,7 +1,9 @@
+from contextlib import nullcontext
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
+from backend.repositories import financial_repository
 from backend.services import recommendation_service
 from backend.services.forecast_service import DailyForecast, ForecastValue
 from backend.services.recommendation_service import (
@@ -162,6 +164,7 @@ def test_recommendations_are_persisted_as_rules_with_version_and_evidence() -> N
     assert len(cursor.statements) == 1
     assert "INSERT INTO recomendaciones_ia" in cursor.statements[0]
     assert "ON CONFLICT (periodo, (evidencia->>'regla'))" in cursor.statements[0]
+    assert "vigente" in cursor.statements[0]
     assert inserted_values[0] == str(user_id)
     assert inserted_values[6] == '{"regla": "flujo_neto_bancario_negativo", "alertas_ids": [], "kpis_ids": [21]}'
     assert inserted_values[7] == RULES_VERSION
@@ -219,6 +222,47 @@ def test_anonymous_and_cfo_generations_reuse_the_same_rule_record() -> None:
     assert str(cfo_saved[0]["user_id"]) == str(cfo_user_id)
 
 
+def test_list_recommendations_returns_only_current_rules_without_global_period_filter(monkeypatch) -> None:
+    class FakeCursor:
+        def __init__(self) -> None:
+            self.query = ""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback) -> None:
+            return None
+
+        def execute(self, query, parameters) -> None:
+            self.query = " ".join(query.split()).lower()
+
+        def fetchall(self):
+            return []
+
+    class FakeConnection:
+        def __init__(self) -> None:
+            self.fake_cursor = FakeCursor()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback) -> None:
+            return None
+
+        def cursor(self):
+            return self.fake_cursor
+
+    connection = FakeConnection()
+    monkeypatch.setattr(financial_repository, "get_db_connection", lambda: connection)
+
+    recommendations = object.__new__(financial_repository.PostgreSQLRepository).list_recommendations()
+
+    assert recommendations == []
+    assert "and vigente = true" in connection.fake_cursor.query
+    assert "max(periodo)" not in connection.fake_cursor.query
+    assert "order by generado_en desc" in connection.fake_cursor.query
+
+
 def test_generate_recommendations_persists_explicit_missing_data_notice(monkeypatch) -> None:
     generated_at = datetime.now(timezone.utc)
 
@@ -227,6 +271,8 @@ def test_generate_recommendations_persists_explicit_missing_data_notice(monkeypa
             self.result = None
             self.rows = []
             self.inserted_values = None
+            self.stale_recommendations_marked = False
+            self.statements = []
 
         def __enter__(self):
             return self
@@ -236,6 +282,7 @@ def test_generate_recommendations_persists_explicit_missing_data_notice(monkeypa
 
         def execute(self, statement, parameters=None) -> None:
             normalized = " ".join(statement.split()).lower()
+            self.statements.append(normalized)
             if normalized.startswith("select setval"):
                 self.result = None
             elif normalized.startswith("select exists"):
@@ -246,6 +293,8 @@ def test_generate_recommendations_persists_explicit_missing_data_notice(monkeypa
                 self.rows = []
             elif normalized.startswith("select min(fecha_transaccion)"):
                 self.result = (None, None)
+            elif normalized.startswith("update recomendaciones_ia set vigente = false"):
+                self.stale_recommendations_marked = True
             elif normalized.startswith("insert into recomendaciones_ia"):
                 self.inserted_values = parameters
                 self.result = (701, generated_at, parameters[0])
@@ -281,6 +330,14 @@ def test_generate_recommendations_persists_explicit_missing_data_notice(monkeypa
     generated = recommendation_service.generate_recommendations()
 
     assert connection.committed
+    assert connection.fake_cursor.stale_recommendations_marked
+    assert connection.fake_cursor.statements.index(
+        "update recomendaciones_ia set vigente = false where evidencia->>'regla' is not null and vigente = true"
+    ) < next(
+        index
+        for index, statement in enumerate(connection.fake_cursor.statements)
+        if statement.startswith("insert into recomendaciones_ia")
+    )
     assert len(generated) == 1
     assert generated[0]["id"] == 701
     assert generated[0]["model_name"] == RULES_VERSION
@@ -289,3 +346,52 @@ def test_generate_recommendations_persists_explicit_missing_data_notice(monkeypa
     assert generated[0]["evidence"]["kpis_ids"] == []
     assert connection.fake_cursor.inserted_values[7] == RULES_VERSION
     assert connection.fake_cursor.inserted_values[10] == RULES_VERSION
+
+
+def test_generation_marks_previous_rules_stale_before_persisting_current_rules(monkeypatch) -> None:
+    class FakeCursor:
+        def __init__(self) -> None:
+            self.statements = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback) -> None:
+            return None
+
+        def execute(self, statement, parameters=None) -> None:
+            self.statements.append(" ".join(statement.split()).lower())
+
+    class FakeConnection:
+        def __init__(self) -> None:
+            self.fake_cursor = FakeCursor()
+            self.committed = False
+
+        def cursor(self):
+            return self.fake_cursor
+
+        def commit(self) -> None:
+            self.committed = True
+
+    connection = FakeConnection()
+    monkeypatch.setattr(recommendation_service, "get_db_connection", lambda: nullcontext(connection))
+    monkeypatch.setattr(recommendation_service, "_load_open_alerts", lambda cursor: ([], True))
+    monkeypatch.setattr(
+        recommendation_service,
+        "_load_latest_kpis",
+        lambda cursor: [
+            {"id": index, "codigo": code, "periodo": date(2026, 10, 1), "centro_costo_id": None, "valor": Decimal("0")}
+            for index, code in enumerate(recommendation_service.TRACKED_KPI_CODES, start=1)
+        ],
+    )
+    monkeypatch.setattr(recommendation_service, "_load_forecast", lambda cursor: (None, None))
+    monkeypatch.setattr(recommendation_service, "_sync_recommendation_id_sequence", lambda cursor: None)
+    monkeypatch.setattr(recommendation_service, "_build_recommendations", lambda *args, **kwargs: [])
+
+    generated = recommendation_service.generate_recommendations()
+
+    assert generated == []
+    assert connection.committed
+    assert connection.fake_cursor.statements == [
+        "update recomendaciones_ia set vigente = false where evidencia->>'regla' is not null and vigente = true"
+    ]

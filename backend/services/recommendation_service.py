@@ -318,6 +318,17 @@ def _persist_recommendations(
     ]
 
 
+def _mark_recommendations_stale(cursor: Any) -> None:
+    cursor.execute(
+        """
+        UPDATE recomendaciones_ia
+        SET vigente = FALSE
+        WHERE evidencia->>'regla' IS NOT NULL
+          AND vigente = TRUE
+        """
+    )
+
+
 def _sync_recommendation_id_sequence(cursor: Any) -> None:
     cursor.execute(
         """
@@ -348,6 +359,7 @@ def generate_recommendations(user_id: Optional[UUID] = None) -> List[Dict[str, A
                 missing_kpi_codes=missing_kpi_codes,
                 forecast_unavailable_reason=forecast_unavailable_reason,
             )
+            _mark_recommendations_stale(cursor)
             _sync_recommendation_id_sequence(cursor)
             persisted = _persist_recommendations(cursor, recommendations, user_id)
             connection.commit()

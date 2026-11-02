@@ -64,14 +64,17 @@ La conexión PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /
 
 ### Migraciones de bases de datos existentes
 
-Aplica una sola vez las migraciones pendientes en orden. La primera registra el archivo de origen de cada presupuesto; la segunda conserva una recomendación por regla y periodo, transfiere su retroalimentación al registro conservado y evita duplicados futuros:
+Aplica una sola vez las migraciones pendientes en orden. La primera registra el archivo de origen de cada presupuesto; la segunda conserva una recomendación por regla y periodo, transfiere su retroalimentación al registro conservado y evita duplicados futuros; la tercera añade el estado de vigencia de las recomendaciones:
 
 ```powershell
 psql -U postgres -d todo_plataforma_cfo -f migrations\001_track_budget_data_source.sql
 psql -U postgres -d todo_plataforma_cfo -f migrations\002_deduplicate_recommendations_by_rule.sql
+psql -U postgres -d todo_plataforma_cfo -f migrations\003_track_current_recommendations.sql
 ```
 
 En instalaciones nuevas, `schema.sql` incluye esas restricciones. La acción **Eliminar datos de práctica** en Carga ERP solo elimina registros asociados a fuentes cuyo nombre de archivo inicia con `practica_`; los presupuestos importados conservan su fuente para no borrar presupuestos de otras cargas.
+
+Al añadir la columna de vigencia, las recomendaciones históricas existentes quedan inicialmente como no vigentes y se vuelven a activar al ejecutar la generación de reglas.
 
 ### Ejecutar la API
 

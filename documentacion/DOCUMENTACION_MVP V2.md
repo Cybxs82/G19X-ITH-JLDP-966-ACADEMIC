@@ -135,6 +135,8 @@ La ingesta aplica límites fijos; aunque existe la tabla `umbrales_alerta`, actu
 
 Las reglas se evalúan sobre alertas abiertas (`nueva` o `en_revision`), el último valor disponible de cada KPI por centro de costo y el forecast calculado con transacciones bancarias. Cada recomendación registra el identificador de regla, periodo, situación, impacto, acción, prioridad y evidencia (`alertas_ids`, `kpis_ids` y, para forecast, los horizontes/valores evaluados). Las reglas no ejecutan acciones.
 
+Cada generación marca como no vigentes las recomendaciones de reglas que no se activaron en esa evaluación y reactiva o actualiza las que sí se activaron. `GET /recommendations` devuelve únicamente las vigentes; no infiere vigencia usando el periodo máximo, ya que cada regla conserva el periodo de su alerta o KPI de origen. Las recomendaciones no vigentes se conservan en la base de datos para mantener el historial y cualquier retroalimentación asociada.
+
 #### REGLA-01: Alerta abierta de severidad alta
 - **Condición:** existe al menos una alerta abierta con `severidad = alta` y `desviacion_pct > 0`.
 - **Fórmula de impacto:** suma de `monto_real - monto_presupuestado` para las alertas coincidentes.

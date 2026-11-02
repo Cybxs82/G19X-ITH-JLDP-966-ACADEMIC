@@ -76,10 +76,10 @@ class PostgreSQLRepository:
             """
             INSERT INTO recomendaciones_ia (
                 usuario_id, periodo, situacion, impacto, recomendacion_texto,
-                prioridad, evidencia, version_prompt, prompt_utilizado,
+                prioridad, evidencia, vigente, version_prompt, prompt_utilizado,
                 texto_generado, nombre_modelo, generado_en
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, TRUE, %s, %s, %s, %s, %s)
             ON CONFLICT (periodo, (evidencia->>'regla'))
                 WHERE evidencia->>'regla' IS NOT NULL
             DO UPDATE SET
@@ -89,6 +89,7 @@ class PostgreSQLRepository:
                 recomendacion_texto = EXCLUDED.recomendacion_texto,
                 prioridad = EXCLUDED.prioridad,
                 evidencia = EXCLUDED.evidencia,
+                vigente = TRUE,
                 version_prompt = EXCLUDED.version_prompt,
                 prompt_utilizado = EXCLUDED.prompt_utilizado,
                 texto_generado = EXCLUDED.texto_generado,
@@ -617,6 +618,7 @@ class PostgreSQLRepository:
                     SELECT id, usuario_id, periodo, situacion, impacto, recomendacion_texto, prioridad, evidencia, version_prompt, texto_generado, nombre_modelo, generado_en
                     FROM recomendaciones_ia
                     WHERE evidencia->>'regla' IS NOT NULL
+                      AND vigente = TRUE
                       AND (%s::date IS NULL OR periodo = %s)
                     ORDER BY generado_en DESC
                 """
