@@ -46,15 +46,22 @@ CREATE TABLE usuarios (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     correo          VARCHAR(255) NOT NULL,
     nombre_completo VARCHAR(255) NOT NULL,
+    nombre_usuario  VARCHAR(50),
+    telefono        VARCHAR(20),
     rol             rol_usuario NOT NULL DEFAULT 'analista',
     esta_activo     BOOLEAN NOT NULL DEFAULT TRUE,
     correo_verificado BOOLEAN NOT NULL DEFAULT FALSE,
     creado_en       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    actualizado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
+    actualizado_en  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (nombre_usuario IS NULL OR nombre_usuario ~ '^[A-Za-z0-9_.-]{3,50}$'),
+    CHECK (telefono IS NULL OR telefono ~ '^\+?[0-9 ()-]{7,20}$')
 );
 COMMENT ON TABLE usuarios IS 'Cuentas y perfiles de la plataforma; PostgreSQL es la fuente de identidad y autorización.';
 
 CREATE UNIQUE INDEX usuarios_correo_minusculas_key ON usuarios (lower(correo));
+CREATE UNIQUE INDEX usuarios_nombre_usuario_minusculas_key
+    ON usuarios (lower(nombre_usuario))
+    WHERE nombre_usuario IS NOT NULL;
 
 CREATE TRIGGER trg_usuarios_actualizado_en
 BEFORE UPDATE ON usuarios
@@ -292,7 +299,7 @@ CREATE TABLE recomendaciones_ia (
     recomendacion_texto TEXT NOT NULL,          -- acción concreta recomendada
     prioridad           prioridad_recomendacion NOT NULL DEFAULT 'media',
     evidencia           JSONB,                  -- referencias a valores_kpi.id / alertas.id que sustentan la recomendación
-    vigente             BOOLEAN NOT NULL DEFAULT TRUE,
+    vigente             BOOLEAN NOT NULL DEFAULT TRUE, -- TRUE si la regla se cumple en la última generación
     version_prompt      VARCHAR(50) NOT NULL,   -- nombre legado: versión de las reglas, por ejemplo 'reglas-v1'
     prompt_utilizado    TEXT NOT NULL,          -- nombre legado: regla y plantilla determinista usada
     texto_generado      TEXT NOT NULL,          -- nombre legado: texto resultante de la regla
@@ -300,6 +307,7 @@ CREATE TABLE recomendaciones_ia (
     generado_en         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE recomendaciones_ia IS 'Historial de recomendaciones generadas por reglas explicables: situación, impacto, recomendación, prioridad y evidencia, con versión de reglas, usuario y fecha para trazabilidad. Se conserva el nombre legado de la tabla para mantener compatibilidad con el código y los datos existentes.';
+COMMENT ON COLUMN recomendaciones_ia.vigente IS 'Indica si la recomendación sigue activa según la última generación; las filas históricas no se eliminan.';
 
 CREATE TABLE retroalimentacion_ia (
     id                  BIGSERIAL PRIMARY KEY,
