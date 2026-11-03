@@ -36,6 +36,7 @@ export default function IngestionPage() {
       onEditProfile={() => router.push("/profile")}
       onOpenDashboard={() => router.push("/")}
       onOpenIngestion={() => router.push("/ingestion")}
+      onOpenGuide={() => router.push("/guide")}
     >
       <ERPUploadView canDeletePracticeData={user.role === "analista" || user.role === "administrador"} />
     </DashboardView>

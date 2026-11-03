@@ -217,8 +217,6 @@ def test_practice_data_cleanup_is_limited_to_ingestion_roles(monkeypatch) -> Non
         lambda: {"id": "00000000-0000-0000-0000-000000000001", "role": "cfo"},
     )
     response = client.delete("/api/v1/ingestion/practice-data")
-    response = client.delete("/api/v1/ingestion/practice-data")
-    assert response.status_code == 403
     assert response.status_code == 403
 
 

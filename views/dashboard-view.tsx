@@ -14,11 +14,12 @@ type DashboardViewProps = {
   onEditProfile: () => void;
   onOpenDashboard: () => void;
   onOpenIngestion: () => void;
+  onOpenGuide: () => void;
   onUpdateAlert?: (alertId: number, status: Alert["status"], comment: string) => Promise<void>;
   filters?: DashboardFilters;
   costCenters?: CostCenter[];
   onFiltersChange?: (filters: DashboardFilters) => void;
-  activeSection?: "Resumen" | "Carga ERP";
+  activeSection?: "Resumen" | "Carga ERP" | "Guía de uso";
   children?: ReactNode;
 };
 
@@ -60,7 +61,7 @@ function formatForecastAmount(value: number): string {
   }).format(value);
 }
 
-export function DashboardView({ dashboard, user, dashboardError = "", recommendationsError = "", onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, onUpdateAlert, filters = { periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 }, costCenters = [], onFiltersChange, activeSection = "Resumen", children }: DashboardViewProps) {
+export function DashboardView({ dashboard, user, dashboardError = "", recommendationsError = "", onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, onOpenGuide, onUpdateAlert, filters = { periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 }, costCenters = [], onFiltersChange, activeSection = "Resumen", children }: DashboardViewProps) {
   const [activeNav, setActiveNav] = useState<string>(activeSection);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() =>
@@ -116,14 +117,15 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
         <div className="workspace-label">PLATAFORMA CFO</div>
 
         <nav className="main-nav" aria-label="Navegación principal">
-          {["Resumen", "Flujo de caja", "Presupuesto", "Reportes", "Carga ERP"].map((item) => (
+          {["Resumen", "Flujo de caja", "Presupuesto", "Reportes", "Carga ERP", "Guía de uso"].map((item) => (
             <button
               className={activeNav === item ? "nav-item active" : "nav-item"}
               key={item}
               onClick={() => {
                 setActiveNav(item);
                 if (item === "Carga ERP") onOpenIngestion();
-                if (item === "Resumen" && activeSection === "Carga ERP") onOpenDashboard();
+                if (item === "Guía de uso") onOpenGuide();
+                if (item === "Resumen" && activeSection !== "Resumen") onOpenDashboard();
               }}
             >
               <span className="nav-dot" />{item}
@@ -167,7 +169,7 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
           {logoutError && <p className="auth-error" role="alert">{logoutError}</p>}
           {dashboardError && <p className="auth-error" role="alert">{dashboardError}</p>}
           {alertError && <p className="auth-error" role="alert">{alertError}</p>}
-          {activeSection === "Carga ERP" ? children : (
+          {activeSection !== "Resumen" ? children : (
           <>
           <div className="page-heading">
             <div>
@@ -217,7 +219,7 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
                 </div>
                 <div className="legend">
                   <span>
-                    <i className="legend-line projected" />Proyectado
+                    <i className="legend-bar projected" />Proyectado
                   </span>
                   <span><i className="legend-band" />Intervalo 80 %</span>
                 </div>
@@ -275,7 +277,7 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
               </div>
 
               <div className="chart-note">
-                <span className="note-mark">i</span> Flujo neto en MXN, no saldo de caja; cada mes muestra solo los días incluidos en el horizonte.
+                <span className="note-mark">i</span> Barra sólida: flujo neto mensual proyectado. Franja clara: rango estimado (80 %) entre los límites inferior y superior. Valores en MXN, no saldo de caja; los días indican cuánto del mes incluye la proyección.
               </div>
               </>
               )}
