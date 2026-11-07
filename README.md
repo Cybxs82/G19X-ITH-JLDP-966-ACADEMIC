@@ -17,29 +17,6 @@ backend/
 
 El frontend mantiene sus responsabilidades separadas en `controllers/`, `models/` y `views/`. `main.py` funciona como composition root: configura FastAPI, registra middleware y conecta el controlador con el repositorio PostgreSQL.
 
----
-
-## ⚠️ Configuración Obligatoria de Base de Datos y `.env`
-
-Antes de ejecutar la plataforma, **es necesario utilizar el esquema de base de datos (`schema.sql`) y cambiar los valores del archivo `.env`** para que el proyecto se conecte correctamente a tu instancia local de PostgreSQL (15+):
-
-1. **Crear la base de datos y aplicar el esquema (`schema.sql`):**
-   ```powershell
-   psql -U postgres -c "CREATE DATABASE todo_plataforma_cfo;"
-   psql -U postgres -d todo_plataforma_cfo -f schema.sql
-   ```
-
-2. **Modificar los valores del archivo `.env`:**
-   Edita el archivo `.env` en la raíz del proyecto con las credenciales reales de tu PostgreSQL local:
-   ```env
-   CFO_DATABASE_URL=postgresql+psycopg2://USUARIO:CONTRASENA@localhost:5432/todo_plataforma_cfo
-   CFO_ENABLE_DEMO_DATA=false
-   CFO_SECURE_SESSION_COOKIE=false
-   ```
-   *(Para ejecución local por HTTP, mantén `CFO_SECURE_SESSION_COOKIE=false`).*
-
----
-
 ## Backend FastAPI
 
 El punto de entrada es [`main.py`](main.py). La API expone documentación OpenAPI en `/docs` y estos recursos bajo `/api/v1`:
@@ -62,9 +39,60 @@ El MVP ofrece resúmenes ejecutivos y recomendaciones sin IA generativa ni servi
 
 La conexión PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /health`. La Fase 2 conserva el archivo recibido en `datos_temporales_erp` o `datos_temporales_banco`, normaliza cuentas, centros de costo y transacciones, registra filas rechazadas en `registros_sincronizacion_rechazados` y recalcula los KPIs desde `transacciones`. La carga del seed demo está desactivada por omisión (`CFO_ENABLE_DEMO_DATA=false`); puede habilitarse explícitamente para desarrollo. No se guardan credenciales en el código.
 
+## Instalación desde cero
+
+Sigue estos pasos en orden desde la raíz del proyecto. Necesitas PostgreSQL 15+, Python 3.11 y Node.js/npm.
+
+1. **Crear la base de datos y aplicar el esquema.** En PowerShell:
+   ```powershell
+   psql -U postgres -c "CREATE DATABASE todo_plataforma_cfo;"
+   psql -U postgres -d todo_plataforma_cfo -f schema.sql
+   ```
+
+2. **Copiar y editar `.env`.** Copia el ejemplo y edita el archivo nuevo con la configuración de tu PostgreSQL:
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+   Define `CFO_DATABASE_URL` con el usuario, contraseña, host, puerto y nombre de la base de datos. Para desarrollo local por HTTP, conserva `CFO_SECURE_SESSION_COOKIE=false`; deja `CFO_ENABLE_DEMO_DATA=false`.
+
+3. **Crear el entorno virtual e iniciar FastAPI.**
+   ```powershell
+   py -3.11 -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+   .\.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000
+   ```
+   Mantén esta terminal abierta. La API queda en `http://localhost:8000` y su documentación en `http://localhost:8000/docs`.
+
+4. **Instalar e iniciar el frontend** en una segunda terminal desde la raíz del proyecto:
+   ```powershell
+   npm install
+   npm run dev
+   ```
+   Abre [http://localhost:3000](http://localhost:3000).
+
+5. **Registrarte.** En la pantalla inicial, selecciona **Crear cuenta**, ingresa tu nombre, correo y contraseña. Al registrarte se asigna el rol `analista` por omisión.
+
+6. **Asegurar que tu cuenta tenga el rol necesario para cargar archivos.** El rol `analista` permite importar datos y es el asignado automáticamente al registrarte. Si necesitas establecerlo explícitamente, sustituye el correo por el usado en el registro y ejecuta:
+   ```powershell
+   psql -U postgres -d todo_plataforma_cfo -c "UPDATE usuarios SET rol = 'analista' WHERE lower(correo) = lower('tu-correo@example.com');"
+   ```
+
+7. **Cargar los archivos de `datos/` desde la vista Carga ERP**, seleccionando el tipo indicado y en este orden:
+   - Primero, [`datos/erp_datasheet_50_lineas.csv`](datos/erp_datasheet_50_lineas.csv) como **ERP**.
+   - Segundo, [`datos/presupuesto_template.csv`](datos/presupuesto_template.csv) como **Presupuesto**.
+   - Tercero, [`datos/practica_transacciones_erp.csv`](datos/practica_transacciones_erp.csv) como **ERP**.
+   - Cuarto, [`datos/practica_transacciones_bancarias.csv`](datos/practica_transacciones_bancarias.csv) como **Banco**.
+   - Por último, [`datos/practica_presupuestos.csv`](datos/practica_presupuestos.csv) como **Presupuesto**.
+
+   Conserva el prefijo `practica_` en los nombres de los últimos tres archivos para que la acción **Eliminar datos de práctica** pueda reconocerlos. ERP/Banco requieren `fecha` y `monto`; Presupuesto requiere `periodo`, `monto_presupuestado`, `cuenta` y `centro_costo`.
+
+8. **Revisar el resumen.** Después de las cargas, espera ver indicadores de ingresos y gastos, comparaciones frente al presupuesto y, cuando corresponda, alertas y recomendaciones basadas en los datos. El pronóstico de flujo neto requiere al menos 180 días de movimientos bancarios; si el resumen indica que faltan datos o no muestra una proyección, verifica el histórico bancario. El pronóstico es de flujo neto, no de saldo de caja.
+
+Si PostgreSQL no está levantado o `CFO_DATABASE_URL` no está configurado correctamente, `/health` indicará que la base de datos no está disponible.
+
 ### Migraciones de bases de datos existentes
 
-Aplica una sola vez las migraciones pendientes en orden. La primera registra el archivo de origen de cada presupuesto; la segunda conserva una recomendación por regla y periodo, transfiere su retroalimentación al registro conservado y evita duplicados futuros; la tercera añade el estado de vigencia de las recomendaciones:
+En instalaciones nuevas, `schema.sql` incluye las migraciones. Para una base existente, aplica una sola vez las migraciones pendientes en orden. La primera registra el archivo de origen de cada presupuesto; la segunda conserva una recomendación por regla y periodo, transfiere su retroalimentación al registro conservado y evita duplicados futuros; la tercera añade el estado de vigencia de las recomendaciones:
 
 ```powershell
 psql -U postgres -d todo_plataforma_cfo -f migrations\001_track_budget_data_source.sql
@@ -72,66 +100,12 @@ psql -U postgres -d todo_plataforma_cfo -f migrations\002_deduplicate_recommenda
 psql -U postgres -d todo_plataforma_cfo -f migrations\003_track_current_recommendations.sql
 ```
 
-En instalaciones nuevas, `schema.sql` incluye esas restricciones. La acción **Eliminar datos de práctica** en Carga ERP solo elimina registros asociados a fuentes cuyo nombre de archivo inicia con `practica_`; los presupuestos importados conservan su fuente para no borrar presupuestos de otras cargas.
+La acción **Eliminar datos de práctica** en Carga ERP solo elimina registros asociados a fuentes cuyo nombre de archivo inicia con `practica_`; los presupuestos importados conservan su fuente para no borrar presupuestos de otras cargas.
 
-Al añadir la columna de vigencia, las recomendaciones históricas existentes quedan inicialmente como no vigentes y se vuelven a activar al ejecutar la generación de reglas.
+### Formatos de archivos
 
-### Ejecutar la API
-
-```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-Copy-Item .env.example .env
-.\.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000
-```
-
-La API queda disponible en `http://localhost:8000` y su contrato interactivo en `http://localhost:8000/docs`. Si PostgreSQL no está levantado, FastAPI arranca igualmente y `/health` reporta `database: unavailable`. Si falta `CFO_DATABASE_URL`, `/health` también indica claramente que se debe definir la URL de conexión en `.env` o en las variables de entorno.
-
----
-
-## Frontend (Next.js)
-
-En una segunda terminal, instala las dependencias y levanta el servidor de desarrollo local:
-
-```bash
-npm install
-npm run dev
-```
-
-Abre [http://localhost:3000](http://localhost:3000) en tu navegador e **inicia sesión**.
-
----
-
-## 📂 Importación de Datos de Prueba (Carpeta `datos/`)
-
-En la **carpeta raíz del proyecto** hay una carpeta llamada **`datos/`** donde se encuentran los documentos listos para la prueba de importación de datos dentro del proyecto. **Se impulsa a usarlos sí o sí para el correcto funcionamiento y demostración del proyecto.**
-
-### Pasos para importar (después de iniciar sesión):
-1. Ya habiendo iniciado sesión y estando dentro del proyecto en `http://localhost:3000`, dirígete a la vista **Carga ERP**.
-2. Selecciona **ERP**, **Banco** o **Presupuesto**.
-3. Para probar y demostrar el MVP con los ejemplos incluidos en la carpeta **`datos/`**, carga **sí o sí**:
-   - **Primero:** [`datos/erp_datasheet_50_lineas.csv`](datos/erp_datasheet_50_lineas.csv) (como tipo **ERP**).
-   - **Después:** [`datos/presupuesto_template.csv`](datos/presupuesto_template.csv) (como tipo **Presupuesto**).
-4. Para probar el historial diario y la limpieza desde Carga ERP, carga también:
-   - [`datos/practica_transacciones_erp.csv`](datos/practica_transacciones_erp.csv) (como **ERP**).
-   - [`datos/practica_transacciones_bancarias.csv`](datos/practica_transacciones_bancarias.csv) (como **Banco**).
-   - [`datos/practica_presupuestos.csv`](datos/practica_presupuestos.csv) (como **Presupuesto**).
-   Conserva el prefijo `practica_` en los nombres para que el botón **Eliminar datos de práctica** pueda retirar todas esas cargas.
-
-También puedes realizar la importación de los archivos de la carpeta `datos/` por terminal o vía API multipart:
-
-```powershell
-.\.venv\Scripts\python.exe scripts\ingest_financial_files.py .\datos\erp_datasheet_50_lineas.csv --source-type erp
-.\.venv\Scripts\python.exe scripts\ingest_financial_files.py .\datos\presupuesto_template.csv --source-type presupuesto
-```
-
-```powershell
-curl.exe -X POST "http://localhost:8000/api/v1/ingestion/files?source_type=erp" -F "file=@.\datos\erp_datasheet_50_lineas.csv"
-```
-
-### Estructura de los archivos
-- **Excel/CSV (ERP y Banco):** Deben incluir al menos `fecha` y `monto`. Se reconocen también `cuenta`, `nombre_cuenta`, `categoria`, `centro_costo`, `concepto`, `referencia` y `moneda`.
-- **Presupuesto (CSV/Excel):** Debe incluir `periodo`, `monto_presupuestado`, `cuenta` y `centro_costo`.
-- **PDF:** Se procesan mediante texto extraíble y requieren filas con `fecha` y `monto` legibles.
+- **Excel/CSV (ERP y Banco):** deben incluir al menos `fecha` y `monto`. Se reconocen también `cuenta`, `nombre_cuenta`, `categoria`, `centro_costo`, `concepto`, `referencia` y `moneda`.
+- **Presupuesto (CSV/Excel):** debe incluir `periodo`, `monto_presupuestado`, `cuenta` y `centro_costo`.
+- **PDF:** se procesa mediante texto extraíble y requiere filas con `fecha` y `monto` legibles.
 - Cada corrida crea un `sync_log`, conserva el payload original en staging y usa `source_type + source_reference` para evitar duplicados.
 - Los archivos de práctica amplían los movimientos ERP y bancarios a una serie diaria continua, suficiente para el mínimo actual de 180 días de entrenamiento del forecast.
