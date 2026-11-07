@@ -48,7 +48,7 @@ CREATE TABLE usuarios (
     nombre_completo VARCHAR(255) NOT NULL,
     nombre_usuario  VARCHAR(50),
     telefono        VARCHAR(20),
-    rol             rol_usuario NOT NULL DEFAULT 'analista',
+    rol             rol_usuario NOT NULL DEFAULT 'cfo',
     esta_activo     BOOLEAN NOT NULL DEFAULT TRUE,
     correo_verificado BOOLEAN NOT NULL DEFAULT FALSE,
     creado_en       TIMESTAMPTZ NOT NULL DEFAULT now(),

@@ -350,7 +350,7 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
                     <strong>{alert.amount}</strong>
                     <span>sobre presupuesto</span>
                   </div>
-                  {onUpdateAlert && user.role !== "cfo" && (
+                  {onUpdateAlert && (
                     <details className="alert-management">
                       <summary>Gestionar</summary>
                       <label>

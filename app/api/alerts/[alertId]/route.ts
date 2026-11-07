@@ -5,6 +5,14 @@ export async function PATCH(
   { params }: { params: Promise<{ alertId: string }> },
 ): Promise<Response> {
   const { alertId } = await params;
+  const alertIdNumber = Number(alertId);
+  if (!/^[1-9]\d*$/.test(alertId) || !Number.isSafeInteger(alertIdNumber)) {
+    return Response.json(
+      { detail: "El ID de alerta debe ser un entero positivo." },
+      { status: 400 },
+    );
+  }
+
   const headers = new Headers();
   const cookie = request.headers.get("cookie");
   const contentType = request.headers.get("content-type");
@@ -12,7 +20,7 @@ export async function PATCH(
   if (contentType) headers.set("content-type", contentType);
 
   try {
-    const response = await fetch(`${apiUrl}/alerts/${alertId}`, {
+    const response = await fetch(`${apiUrl}/alerts/${alertIdNumber}`, {
       method: "PATCH",
       headers,
       body: await request.text(),

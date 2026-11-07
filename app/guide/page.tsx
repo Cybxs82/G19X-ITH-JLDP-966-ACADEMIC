@@ -158,7 +158,7 @@ export default function GuidePage() {
               </section>
               <section className="guide-topic">
                 <h4>Eliminar datos de práctica</h4>
-                <p>Este botón está disponible para analistas y administradores. Tras confirmar, elimina las cargas cuyo nombre de archivo empieza con «practica_» y los datos derivados de ellas. No es una acción para borrar cualquier archivo importado; revisa bien antes de confirmar.</p>
+                <p>Este botón está disponible para CFO, analistas y administradores. Tras confirmar, elimina las cargas cuyo nombre de archivo empieza con «practica_» y los datos derivados de ellas. No es una acción para borrar cualquier archivo importado; revisa bien antes de confirmar.</p>
               </section>
             </div>
           </article>

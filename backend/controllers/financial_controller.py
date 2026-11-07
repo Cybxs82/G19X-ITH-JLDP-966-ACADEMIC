@@ -49,15 +49,37 @@ def require_roles(*allowed_roles: str) -> Callable[..., Dict[str, Any]]:
     return dependency
 
 
+def set_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=60 * 60 * 24 * 7,
+        httponly=True,
+        samesite="lax",
+        secure=get_settings().secure_session_cookie,
+        path="/",
+    )
+
+
 def create_router(repository: PostgreSQLRepository) -> APIRouter:
     router = APIRouter()
 
     @router.post("/auth/register", response_model=AuthResponse, status_code=201)
-    def register(payload: RegisterRequest, response: Response) -> AuthResponse:
+    def register(payload: RegisterRequest, request: Request, response: Response) -> AuthResponse:
         try:
-            user = register_user(payload.email, payload.full_name, payload.password)
+            register_user(payload.email, payload.full_name, payload.password)
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
+        try:
+            user, token = authenticate_user(
+                payload.email,
+                payload.password,
+                request.headers.get("user-agent"),
+                request.client.host if request.client else None,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=500, detail="No se pudo iniciar la sesión después del registro") from error
+        set_session_cookie(response, token)
         return AuthResponse(user=AuthUserResponse(**user))
 
     @router.post("/auth/login", response_model=AuthResponse)
@@ -71,15 +93,7 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
             )
         except ValueError as error:
             raise HTTPException(status_code=401, detail=str(error)) from error
-        response.set_cookie(
-            SESSION_COOKIE,
-            token,
-            max_age=60 * 60 * 24 * 7,
-            httponly=True,
-            samesite="lax",
-            secure=get_settings().secure_session_cookie,
-            path="/",
-        )
+        set_session_cookie(response, token)
         return AuthResponse(user=AuthUserResponse(**user))
 
     @router.get("/auth/session", response_model=AuthResponse)
@@ -139,8 +153,8 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
     ) -> List[AlertResponse]:
         return repository.list_alerts(status, severity, cost_center_id, period_from, period_to)
 
-    @router.patch("/alerts/{alert_id}", response_model=AlertResponse, dependencies=[Depends(require_roles("analista", "administrador"))])
-    def update_alert(alert_id: int, payload: AlertUpdate, user: Dict[str, Any] = Depends(require_roles("analista", "administrador"))) -> AlertResponse:
+    @router.patch("/alerts/{alert_id}", response_model=AlertResponse, dependencies=[Depends(require_roles("cfo", "analista", "administrador"))])
+    def update_alert(alert_id: int, payload: AlertUpdate, user: Dict[str, Any] = Depends(require_roles("cfo", "analista", "administrador"))) -> AlertResponse:
         if payload.responsible_id is not None and user["role"] != "administrador":
             raise HTTPException(status_code=403, detail="Solo un administrador puede asignar responsables")
         alert = repository.update_alert(
@@ -174,11 +188,11 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
             raise HTTPException(status_code=403, detail="No puedes enviar feedback a nombre de otro usuario")
         return repository.create_feedback(payload)
 
-    @router.post("/sync", response_model=SyncResponse, status_code=202, dependencies=[Depends(require_roles("analista", "administrador"))])
+    @router.post("/sync", response_model=SyncResponse, status_code=202, dependencies=[Depends(require_roles("cfo", "analista", "administrador"))])
     def create_sync(payload: SyncCreate) -> SyncResponse:
         return repository.create_sync(payload.data_source_id)
 
-    @router.post("/ingestion/files", response_model=IngestionResponse, status_code=202, dependencies=[Depends(require_roles("analista", "administrador"))])
+    @router.post("/ingestion/files", response_model=IngestionResponse, status_code=202, dependencies=[Depends(require_roles("cfo", "analista", "administrador"))])
     async def ingest_financial_file(file: UploadFile = File(...), source_type: str = Query(default="erp")) -> IngestionResponse:
         if source_type not in {"erp", "banco"}:
             raise HTTPException(status_code=422, detail="source_type debe ser erp o banco")
@@ -189,7 +203,7 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
         generate_recommendations()
         return IngestionResponse(**result)
 
-    @router.post("/ingestion/documents", response_model=IngestionResponse, status_code=202, dependencies=[Depends(require_roles("analista", "administrador"))])
+    @router.post("/ingestion/documents", response_model=IngestionResponse, status_code=202, dependencies=[Depends(require_roles("cfo", "analista", "administrador"))])
     async def ingest_erp_document_route(file: UploadFile = File(...)) -> IngestionResponse:
         file_name = Path(file.filename or "").name
         if not file_name:
@@ -208,7 +222,7 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
         generate_recommendations()
         return IngestionResponse(**result)
 
-    @router.post("/ingestion/budgets", response_model=IngestionResponse, status_code=202, dependencies=[Depends(require_roles("analista", "administrador"))])
+    @router.post("/ingestion/budgets", response_model=IngestionResponse, status_code=202, dependencies=[Depends(require_roles("cfo", "analista", "administrador"))])
     async def ingest_budget_route(file: UploadFile = File(...)) -> IngestionResponse:
         file_name = Path(file.filename or "").name
         if not file_name:
@@ -230,7 +244,7 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
     @router.delete(
         "/ingestion/practice-data",
         response_model=Dict[str, int],
-        dependencies=[Depends(require_roles("analista", "administrador"))],
+        dependencies=[Depends(require_roles("cfo", "analista", "administrador"))],
     )
     def remove_practice_data() -> Dict[str, int]:
         deleted_counts = delete_practice_data()

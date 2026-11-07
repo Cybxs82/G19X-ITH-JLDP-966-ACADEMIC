@@ -1,5 +1,6 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +11,7 @@ from backend.models.schemas import AlertResponse, AlertSeverity, AlertStatus, Fo
 from backend.infrastructure import database
 from backend.infrastructure.config import Settings
 from backend.infrastructure.database import get_db_connection
+from backend.services import auth_service
 from main import app, repository
 
 
@@ -31,6 +33,63 @@ def test_health_check() -> None:
     assert response.status_code == 200
     assert response.json()["status"] in {"ok", "degraded"}
     assert response.json()["database"] in {"connected", "unavailable"}
+
+
+def test_new_registrations_receive_cfo_role(monkeypatch) -> None:
+    user_id = "00000000-0000-0000-0000-000000000003"
+    cursor = MagicMock()
+    cursor.__enter__.return_value = cursor
+    cursor.fetchone.side_effect = [
+        None,
+        (user_id, "cfo@example.com", "CFO", None, None, "cfo", True),
+    ]
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.cursor.return_value.__enter__.return_value = cursor
+    monkeypatch.setattr(auth_service, "get_db_connection", lambda: connection)
+
+    user = auth_service.register_user("cfo@example.com", "CFO", "password123")
+
+    assert user["role"] == "cfo"
+    assert cursor.execute.call_args_list[1].args[1] == ("cfo@example.com", "CFO", "cfo")
+
+
+def test_registration_starts_cfo_session(monkeypatch) -> None:
+    user = {
+        "id": "00000000-0000-0000-0000-000000000003",
+        "email": "cfo@example.com",
+        "full_name": "CFO",
+        "username": None,
+        "phone": None,
+        "role": "cfo",
+        "is_active": True,
+    }
+    registered = []
+    authenticated = []
+    monkeypatch.setattr(
+        financial_controller,
+        "register_user",
+        lambda email, full_name, password: registered.append((email, full_name, password)),
+    )
+    monkeypatch.setattr(
+        financial_controller,
+        "authenticate_user",
+        lambda email, password, user_agent, ip_address: (
+            authenticated.append((email, password, user_agent, ip_address)) or (user, "session-token")
+        ),
+    )
+
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"email": "cfo@example.com", "full_name": "CFO", "password": "password123"},
+        headers={"user-agent": "pytest"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["user"]["role"] == "cfo"
+    assert response.cookies.get("cfo_session") == "session-token"
+    assert registered == [("cfo@example.com", "CFO", "password123")]
+    assert authenticated[0][:3] == ("cfo@example.com", "password123", "pytest")
 
 
 def test_health_reports_missing_database_url(monkeypatch) -> None:
@@ -144,7 +203,16 @@ def test_dashboard_does_not_generate_recommendations(monkeypatch, analyst_sessio
     assert response.json()["recommendations"] == []
 
 
-def test_alert_can_be_attended(monkeypatch, analyst_session) -> None:
+@pytest.mark.parametrize("role", ["cfo", "analista", "administrador"])
+def test_alert_can_be_attended(monkeypatch, analyst_session, role) -> None:
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        require_authenticated_user,
+        lambda: {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "role": role,
+        },
+    )
     updated_alert = AlertResponse(
         id=1,
         account_id=1,
@@ -210,17 +278,23 @@ def test_practice_data_cleanup_requires_session() -> None:
     assert response.status_code == 401
 
 
-def test_practice_data_cleanup_is_limited_to_ingestion_roles(monkeypatch) -> None:
+def test_practice_data_cleanup_rejects_unknown_role(monkeypatch) -> None:
     monkeypatch.setitem(
         app.dependency_overrides,
         require_authenticated_user,
-        lambda: {"id": "00000000-0000-0000-0000-000000000001", "role": "cfo"},
+        lambda: {"id": "00000000-0000-0000-0000-000000000001", "role": "desconocido"},
     )
     response = client.delete("/api/v1/ingestion/practice-data")
     assert response.status_code == 403
 
 
-def test_practice_data_cleanup_returns_deleted_record_counts(monkeypatch, analyst_session) -> None:
+@pytest.mark.parametrize("role", ["cfo", "analista", "administrador"])
+def test_practice_data_cleanup_returns_deleted_record_counts(monkeypatch, role) -> None:
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        require_authenticated_user,
+        lambda: {"id": "00000000-0000-0000-0000-000000000002", "role": role},
+    )
     counts = {
         "transactions": 12,
         "budgets": 4,
@@ -277,6 +351,7 @@ def test_get_recommendations_only_lists_existing_recommendations(monkeypatch, an
     assert calls == [("list", date(2026, 10, 1))]
 
 
+@pytest.mark.parametrize("role", ["cfo", "analista", "administrador"])
 @pytest.mark.parametrize(
     ("route", "ingestion_function"),
     [
@@ -287,10 +362,18 @@ def test_get_recommendations_only_lists_existing_recommendations(monkeypatch, an
 )
 def test_ingestion_generates_recommendations_after_loading(
     monkeypatch,
-    analyst_session,
+    role,
     route,
     ingestion_function,
 ) -> None:
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        require_authenticated_user,
+        lambda: {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "role": role,
+        },
+    )
     calls = []
     monkeypatch.setattr(
         financial_controller,
@@ -367,22 +450,6 @@ def test_cost_centers_require_session() -> None:
     response = client.get("/api/v1/cost-centers")
 
     assert response.status_code == 401
-
-
-def test_cfo_cannot_update_alert(monkeypatch) -> None:
-    app.dependency_overrides[require_authenticated_user] = lambda: {
-        "id": "00000000-0000-0000-0000-000000000001",
-        "role": "cfo",
-    }
-    try:
-        response = client.patch(
-            "/api/v1/alerts/1",
-            json={"status": "en_revision", "comment": "Revisión"},
-        )
-    finally:
-        app.dependency_overrides.pop(require_authenticated_user, None)
-
-    assert response.status_code == 403
 
 
 def test_budget_ingestion_requires_session() -> None:

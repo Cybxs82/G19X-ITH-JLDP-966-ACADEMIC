@@ -70,23 +70,22 @@ Sigue estos pasos en orden desde la raíz del proyecto. Necesitas PostgreSQL 15+
    ```
    Abre [http://localhost:3000](http://localhost:3000).
 
-5. **Registrarte.** En la pantalla inicial, selecciona **Crear cuenta**, ingresa tu nombre, correo y contraseña. Al registrarte se asigna el rol `analista` por omisión.
+5. **Registrarte.** En la pantalla inicial, selecciona **Crear cuenta**, ingresa tu nombre, correo y contraseña. En este MVP, el registro crea la cuenta con el rol `cfo` e inicia la sesión automáticamente; puedes usar la aplicación de inmediato sin que un administrador cambie tu rol.
 
-6. **Asegurar que tu cuenta tenga el rol necesario para cargar archivos.** El rol `analista` permite importar datos y es el asignado automáticamente al registrarte. Si necesitas establecerlo explícitamente, sustituye el correo por el usado en el registro y ejecuta:
-   ```powershell
-   psql -U postgres -d todo_plataforma_cfo -c "UPDATE usuarios SET rol = 'analista' WHERE lower(correo) = lower('tu-correo@example.com');"
-   ```
+   | Rol | Permisos principales |
+   | --- | --- |
+   | `cfo` | Consultar el resumen, cargar archivos, gestionar alertas, eliminar datos de práctica y generar/guardar recomendaciones. |
+   | `analista` | Consultar el resumen, cargar archivos, gestionar alertas y eliminar datos de práctica. |
+   | `administrador` | Permisos de analista y CFO, además de asignar responsables a las alertas. |
 
-7. **Cargar los archivos de `datos/` desde la vista Carga ERP**, seleccionando el tipo indicado y en este orden:
-   - Primero, [`datos/erp_datasheet_50_lineas.csv`](datos/erp_datasheet_50_lineas.csv) como **ERP**.
-   - Segundo, [`datos/presupuesto_template.csv`](datos/presupuesto_template.csv) como **Presupuesto**.
-   - Tercero, [`datos/practica_transacciones_erp.csv`](datos/practica_transacciones_erp.csv) como **ERP**.
-   - Cuarto, [`datos/practica_transacciones_bancarias.csv`](datos/practica_transacciones_bancarias.csv) como **Banco**.
+6. **Cargar los archivos de `datos/` desde la vista Carga ERP**, seleccionando el tipo indicado y en este orden:
+   - Primero, [`datos/practica_transacciones_erp.csv`](datos/practica_transacciones_erp.csv) como **ERP**.
+   - Segundo, [`datos/practica_transacciones_bancarias.csv`](datos/practica_transacciones_bancarias.csv) como **Banco**.
    - Por último, [`datos/practica_presupuestos.csv`](datos/practica_presupuestos.csv) como **Presupuesto**.
 
    Conserva el prefijo `practica_` en los nombres de los últimos tres archivos para que la acción **Eliminar datos de práctica** pueda reconocerlos. ERP/Banco requieren `fecha` y `monto`; Presupuesto requiere `periodo`, `monto_presupuestado`, `cuenta` y `centro_costo`.
 
-8. **Revisar el resumen.** Después de las cargas, espera ver indicadores de ingresos y gastos, comparaciones frente al presupuesto y, cuando corresponda, alertas y recomendaciones basadas en los datos. El pronóstico de flujo neto requiere al menos 180 días de movimientos bancarios; si el resumen indica que faltan datos o no muestra una proyección, verifica el histórico bancario. El pronóstico es de flujo neto, no de saldo de caja.
+7. **Revisar el resumen.** Después de las cargas, espera ver indicadores de ingresos y gastos, comparaciones frente al presupuesto y, cuando corresponda, alertas y recomendaciones basadas en los datos. El pronóstico de flujo neto requiere al menos 180 días de movimientos bancarios; si el resumen indica que faltan datos o no muestra una proyección, verifica el histórico bancario. El pronóstico es de flujo neto, no de saldo de caja.
 
 Si PostgreSQL no está levantado o `CFO_DATABASE_URL` no está configurado correctamente, `/health` indicará que la base de datos no está disponible.
 

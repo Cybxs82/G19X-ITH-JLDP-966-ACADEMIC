@@ -49,12 +49,11 @@ def _user_payload(row: Any) -> Dict[str, Any]:
     }
 
 
-def register_user(email: str, full_name: str, password: str, role: str = "analista") -> Dict[str, Any]:
+def register_user(email: str, full_name: str, password: str) -> Dict[str, Any]:
     normalized_email = email.strip().lower()
     if len(password) < 8:
         raise ValueError("La contraseña debe tener al menos 8 caracteres")
-    if role not in {"cfo", "analista", "administrador"}:
-        raise ValueError("Rol no permitido")
+    role = "cfo"
 
     password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     with get_db_connection() as connection:
