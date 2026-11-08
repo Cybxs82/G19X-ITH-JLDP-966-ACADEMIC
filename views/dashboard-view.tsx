@@ -65,6 +65,7 @@ function formatForecastAmount(value: number): string {
 
 export function DashboardView({ dashboard, user, dashboardError = "", recommendationsError = "", onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, onOpenReports, onOpenGuide, onUpdateAlert, filters = { periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 }, costCenters = [], onFiltersChange, activeSection = "Resumen", children }: DashboardViewProps) {
   const [activeNav, setActiveNav] = useState<string>(activeSection);
+  const [underDevelopmentSection, setUnderDevelopmentSection] = useState<"Flujo de caja" | "Presupuesto" | null>(null);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() =>
     typeof window === "undefined" ? "light" : (localStorage.getItem("cfo-theme") as "light" | "dark") || "light",
@@ -139,6 +140,9 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
               key={item}
               onClick={() => {
                 setActiveNav(item);
+                setUnderDevelopmentSection(
+                  item === "Flujo de caja" || item === "Presupuesto" ? item : null,
+                );
                 if (item === "Carga ERP") onOpenIngestion();
                 if (item === "Reportes") onOpenReports();
                 if (item === "Guía de uso") onOpenGuide();
@@ -187,7 +191,15 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
           {dashboardError && <p className="auth-error" role="alert">{dashboardError}</p>}
           {alertError && <p className="auth-error" role="alert">{alertError}</p>}
           {reportError && <p className="auth-error" role="alert">{reportError}</p>}
-          {activeSection !== "Resumen" ? children : (
+          {underDevelopmentSection ? (
+            <section className="panel under-development" aria-labelledby="under-development-title" aria-live="polite">
+              <p className="eyebrow">EN DESARROLLO</p>
+              <h1 id="under-development-title">{underDevelopmentSection}</h1>
+              <p className="heading-copy">
+                Esta sección se encuentra en desarrollo y estará disponible en una próxima actualización.
+              </p>
+            </section>
+          ) : activeSection !== "Resumen" ? children : (
           <>
           <div className="page-heading">
             <div>

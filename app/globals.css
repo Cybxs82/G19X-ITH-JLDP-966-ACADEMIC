@@ -480,6 +480,10 @@ h2 { font-size: 18px; }
 .kpi-card p b { color: var(--teal); }
 .main-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); margin-top: 14px; }
 .panel { background: var(--panel); border-radius: 5px; padding: 24px 25px; border: 1px solid var(--line); }
+.under-development { display: flex; flex-direction: column; justify-content: center; margin-top: 20px; min-height: 220px; }
+.under-development .eyebrow { color: var(--teal); margin-bottom: 8px; }
+.under-development h1 { margin: 0; }
+.under-development .heading-copy { margin-top: 10px; }
 .panel-heading { align-items: flex-start; display: flex; justify-content: space-between; }
 .legend { color: #809092; display: flex; font-size: 10px; gap: 13px; }
 .legend span { align-items: center; display: flex; gap: 5px; }
