@@ -87,16 +87,20 @@ Sigue estos pasos en orden desde la raíz del proyecto. Necesitas PostgreSQL 15+
 
 7. **Revisar el resumen.** Después de las cargas, espera ver indicadores de ingresos y gastos, comparaciones frente al presupuesto y, cuando corresponda, alertas y recomendaciones basadas en los datos. El pronóstico de flujo neto requiere al menos 180 días de movimientos bancarios; si el resumen indica que faltan datos o no muestra una proyección, verifica el histórico bancario. El pronóstico es de flujo neto, no de saldo de caja.
 
+En **Reportes**, al pulsar **Exportar reporte** en el resumen se guarda la instantánea junto con su PDF en la plataforma. La sección lista los reportes exportados y permite filtrarlos por la fecha final del resumen; cada reporte con PDF disponible puede descargarse desde allí. Abrir la sección no genera ni guarda reportes.
+
 Si PostgreSQL no está levantado o `CFO_DATABASE_URL` no está configurado correctamente, `/health` indicará que la base de datos no está disponible.
 
 ### Migraciones de bases de datos existentes
 
-En instalaciones nuevas, `schema.sql` incluye las migraciones. Para una base existente, aplica una sola vez las migraciones pendientes en orden. La primera registra el archivo de origen de cada presupuesto; la segunda conserva una recomendación por regla y periodo, transfiere su retroalimentación al registro conservado y evita duplicados futuros; la tercera añade el estado de vigencia de las recomendaciones:
+En instalaciones nuevas, `schema.sql` incluye las migraciones. Para una base existente, aplica una sola vez las migraciones pendientes en orden. La primera registra el archivo de origen de cada presupuesto; la segunda conserva una recomendación por regla y periodo, transfiere su retroalimentación al registro conservado y evita duplicados futuros; la tercera añade el estado de vigencia de las recomendaciones; la cuarta crea la tabla de instantáneas de reportes; la quinta añade el almacenamiento de los PDF:
 
 ```powershell
 psql -U postgres -d todo_plataforma_cfo -f migrations\001_track_budget_data_source.sql
 psql -U postgres -d todo_plataforma_cfo -f migrations\002_deduplicate_recommendations_by_rule.sql
 psql -U postgres -d todo_plataforma_cfo -f migrations\003_track_current_recommendations.sql
+psql -U postgres -d todo_plataforma_cfo -f migrations\004_store_summary_reports.sql
+psql -U postgres -d todo_plataforma_cfo -f migrations\005_store_summary_report_pdfs.sql
 ```
 
 La acción **Eliminar datos de práctica** en Carga ERP solo elimina registros asociados a fuentes cuyo nombre de archivo inicia con `practica_`; los presupuestos importados conservan su fuente para no borrar presupuestos de otras cargas.

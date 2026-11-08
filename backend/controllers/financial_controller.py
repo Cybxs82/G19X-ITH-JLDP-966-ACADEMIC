@@ -26,6 +26,8 @@ from ..models.schemas import (
     LoginRequest,
     SyncCreate,
     SyncResponse,
+    SummaryReportCreate,
+    SummaryReportResponse,
 )
 from ..repositories.financial_repository import PostgreSQLRepository
 from ..services.ingestion_service import delete_practice_data, ingest_budget_file, ingest_erp_document, ingest_file
@@ -171,6 +173,51 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
     @router.get("/recommendations", response_model=List[RecommendationResponse], dependencies=[Depends(require_authenticated_user)])
     def get_recommendations(period: Optional[date] = None) -> List[RecommendationResponse]:
         return repository.list_recommendations(period)
+
+    @router.get(
+        "/reports",
+        response_model=List[SummaryReportResponse],
+        dependencies=[Depends(require_authenticated_user)],
+    )
+    def get_summary_reports(
+        summary_date: Optional[date] = None,
+    ) -> List[SummaryReportResponse]:
+        return repository.list_summary_reports(summary_date)
+
+    @router.get(
+        "/reports/{report_id}/pdf",
+        dependencies=[Depends(require_authenticated_user)],
+    )
+    def download_summary_report_pdf(report_id: int) -> Response:
+        pdf_content = repository.get_summary_report_pdf(report_id)
+        if pdf_content is None:
+            raise HTTPException(status_code=404, detail="El PDF del reporte no está disponible")
+        return Response(
+            content=pdf_content,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="reporte-resumen-{report_id}.pdf"'},
+        )
+
+    @router.post(
+        "/reports",
+        response_model=SummaryReportResponse,
+        status_code=201,
+    )
+    def create_summary_report(
+        payload: SummaryReportCreate,
+        user: Dict[str, Any] = Depends(require_authenticated_user),
+    ) -> SummaryReportResponse:
+        period_to = payload.period_to or date.today()
+        period_from = payload.period_from or period_to - timedelta(days=365)
+        if period_from > period_to:
+            raise HTTPException(status_code=422, detail="period_from no puede ser posterior a period_to")
+        return repository.create_summary_report(
+            period_from,
+            period_to,
+            payload.cost_center_id,
+            payload.horizon_days,
+            UUID(str(user["id"])),
+        )
 
     @router.post(
         "/recommendations/generate",

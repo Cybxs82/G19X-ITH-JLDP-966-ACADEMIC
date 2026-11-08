@@ -309,6 +309,26 @@ CREATE TABLE recomendaciones_ia (
 COMMENT ON TABLE recomendaciones_ia IS 'Historial de recomendaciones generadas por reglas explicables: situación, impacto, recomendación, prioridad y evidencia, con versión de reglas, usuario y fecha para trazabilidad. Se conserva el nombre legado de la tabla para mantener compatibilidad con el código y los datos existentes.';
 COMMENT ON COLUMN recomendaciones_ia.vigente IS 'Indica si la recomendación sigue activa según la última generación; las filas históricas no se eliminan.';
 
+CREATE TABLE reportes_resumen (
+    id              BIGSERIAL PRIMARY KEY,
+    fecha_resumen   DATE NOT NULL,
+    periodo_desde   DATE NOT NULL,
+    periodo_hasta   DATE NOT NULL,
+    tipo_reporte    VARCHAR(20) NOT NULL CHECK (tipo_reporte IN ('mensual', 'manual')),
+    instantanea     JSONB NOT NULL,
+    pdf_content     BYTEA,
+    generado_por    UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+    generado_en     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (periodo_desde <= periodo_hasta),
+    CHECK (fecha_resumen = periodo_hasta)
+);
+COMMENT ON TABLE reportes_resumen IS 'Instantáneas persistentes de resúmenes financieros, mensuales y manuales.';
+COMMENT ON COLUMN reportes_resumen.pdf_content IS 'PDF generado y almacenado para descargar la instantánea del reporte.';
+CREATE INDEX IF NOT EXISTS reportes_resumen_fecha_idx ON reportes_resumen (fecha_resumen DESC, generado_en DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS reportes_resumen_mensual_periodo_key
+    ON reportes_resumen (periodo_desde, periodo_hasta)
+    WHERE tipo_reporte = 'mensual';
+
 CREATE TABLE retroalimentacion_ia (
     id                  BIGSERIAL PRIMARY KEY,
     recomendacion_id    BIGINT NOT NULL REFERENCES recomendaciones_ia(id),

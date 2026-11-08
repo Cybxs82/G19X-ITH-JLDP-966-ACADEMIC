@@ -35,6 +35,7 @@ export default function GuidePage() {
       onEditProfile={() => router.push("/profile")}
       onOpenDashboard={() => router.push("/")}
       onOpenIngestion={() => router.push("/ingestion")}
+      onOpenReports={() => router.push("/reports")}
       onOpenGuide={() => router.push("/guide")}
     >
       <section className="user-guide">
@@ -130,7 +131,7 @@ export default function GuidePage() {
               </section>
               <section className="guide-topic">
                 <h4>Otros controles del resumen</h4>
-                <p>El menú del avatar permite abrir el perfil o cerrar sesión. El botón «Exportar reporte» aparece en la interfaz, pero actualmente no genera ni descarga un archivo.</p>
+                <p>El menú del avatar permite abrir el perfil o cerrar sesión. «Exportar reporte» guarda una instantánea del resumen actual junto con su PDF en la plataforma.</p>
               </section>
             </div>
           </article>
@@ -138,6 +139,26 @@ export default function GuidePage() {
           <article className="guide-page-section">
             <div className="guide-page-heading">
               <span className="guide-page-number">02</span>
+              <div>
+                <h3>Reportes</h3>
+                <p>Consulta las instantáneas de resumen guardadas en la plataforma.</p>
+              </div>
+            </div>
+            <div className="guide-topic-grid">
+              <section className="guide-topic">
+                <h4>Exportar y guardar reportes</h4>
+                <p>Al pulsar «Exportar reporte» en el resumen se guarda la instantánea y su PDF en la plataforma. Puedes descargar el archivo desde la lista de Reportes. Abrir Reportes solo muestra los reportes guardados y no genera uno automáticamente.</p>
+              </section>
+              <section className="guide-topic">
+                <h4>Buscar y consultar</h4>
+                <p>Usa «Fecha del resumen» para filtrar por el último día del periodo resumido. «Ver resumen» muestra los datos guardados y «Descargar PDF» obtiene el archivo almacenado.</p>
+              </section>
+            </div>
+          </article>
+
+          <article className="guide-page-section">
+            <div className="guide-page-heading">
+              <span className="guide-page-number">03</span>
               <div>
                 <h3>Carga ERP</h3>
                 <p>Importa manualmente archivos financieros para alimentar los indicadores, alertas y pronósticos.</p>
@@ -165,7 +186,7 @@ export default function GuidePage() {
 
           <article className="guide-page-section">
             <div className="guide-page-heading">
-              <span className="guide-page-number">03</span>
+              <span className="guide-page-number">04</span>
               <div>
                 <h3>Perfil</h3>
                 <p>Administra los datos personales y las credenciales de la cuenta activa.</p>

@@ -21,6 +21,7 @@ from ..models.schemas import (
     KpiResponse,
     MonthlyForecastPointResponse,
     RecommendationResponse,
+    SummaryReportResponse,
     SyncResponse,
 )
 
@@ -642,6 +643,154 @@ class PostgreSQLRepository:
             )
             for row in rows
         ]
+
+    def _build_summary_report_snapshot(
+        self,
+        period_from: date,
+        period_to: date,
+        cost_center_id: Optional[int],
+        horizon_days: int,
+    ) -> Dict[str, Any]:
+        forecast = self.forecast(horizon_days, period_from, period_to, cost_center_id)
+        last_sync = self.last_sync
+        recommendations = [
+            recommendation
+            for recommendation in self.list_recommendations()
+            if period_from <= recommendation.period <= period_to
+        ]
+        snapshot = {
+            "period_from": period_from.isoformat(),
+            "period_to": period_to.isoformat(),
+            "last_sync": last_sync.isoformat() if last_sync else None,
+            "kpis": [
+                kpi.model_dump(mode="json")
+                for kpi in self.list_kpis(period_from, period_to, cost_center_id)
+            ],
+            "forecast": forecast.model_dump(mode="json"),
+            "alerts": [
+                alert.model_dump(mode="json")
+                for alert in self.list_alerts(
+                    cost_center_id=cost_center_id,
+                    period_from=period_from,
+                    period_to=period_to,
+                )
+            ],
+            "recommendations": [
+                recommendation.model_dump(mode="json")
+                for recommendation in recommendations
+            ],
+        }
+        return snapshot
+
+    @staticmethod
+    def _summary_report_from_row(row: Any) -> SummaryReportResponse:
+        snapshot = row[6] if isinstance(row[6], dict) else json.loads(row[6])
+        return SummaryReportResponse(
+            id=row[0],
+            summary_date=row[1],
+            period_from=row[2],
+            period_to=row[3],
+            report_type=row[4],
+            created_at=row[5],
+            snapshot=snapshot,
+            pdf_available=bool(row[7]) if len(row) > 7 else False,
+        )
+
+    def _insert_summary_report(
+        self,
+        period_from: date,
+        period_to: date,
+        report_type: str,
+        snapshot: Dict[str, Any],
+        pdf_content: bytes,
+        user_id: UUID,
+    ) -> SummaryReportResponse:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO reportes_resumen (
+                        fecha_resumen, periodo_desde, periodo_hasta,
+                        tipo_reporte, instantanea, pdf_content, generado_por
+                    )
+                    VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s)
+                    RETURNING id, fecha_resumen, periodo_desde, periodo_hasta,
+                              tipo_reporte, generado_en, instantanea,
+                              pdf_content IS NOT NULL
+                    """,
+                    (
+                        period_to,
+                        period_from,
+                        period_to,
+                        report_type,
+                        json.dumps(snapshot, ensure_ascii=False),
+                        pdf_content,
+                        str(user_id),
+                    ),
+                )
+                row = cursor.fetchone()
+                conn.commit()
+        return self._summary_report_from_row(row)
+
+    def get_summary_report_pdf(self, report_id: int) -> Optional[bytes]:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT pdf_content FROM reportes_resumen WHERE id = %s",
+                    (report_id,),
+                )
+                row = cursor.fetchone()
+        return bytes(row[0]) if row and row[0] is not None else None
+
+    def create_summary_report(
+        self,
+        period_from: date,
+        period_to: date,
+        cost_center_id: Optional[int],
+        horizon_days: int,
+        user_id: UUID,
+    ) -> SummaryReportResponse:
+        snapshot = self._build_summary_report_snapshot(
+            period_from,
+            period_to,
+            cost_center_id,
+            horizon_days,
+        )
+        from ..services.report_pdf_service import generate_summary_report_pdf
+
+        pdf_content = generate_summary_report_pdf(
+            period_from,
+            period_to,
+            snapshot,
+        )
+        return self._insert_summary_report(
+            period_from,
+            period_to,
+            "manual",
+            snapshot,
+            pdf_content,
+            user_id,
+        )
+
+    def list_summary_reports(
+        self,
+        summary_date: Optional[date] = None,
+    ) -> List[SummaryReportResponse]:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, fecha_resumen, periodo_desde, periodo_hasta,
+                           tipo_reporte, generado_en, instantanea,
+                           pdf_content IS NOT NULL
+                    FROM reportes_resumen
+                    WHERE (%s::date IS NULL OR fecha_resumen = %s)
+                    ORDER BY fecha_resumen DESC, generado_en DESC, id DESC
+                    """,
+                    (summary_date, summary_date),
+                )
+                rows = cursor.fetchall()
+        return [self._summary_report_from_row(row) for row in rows]
 
     def create_feedback(self, feedback: FeedbackCreate) -> FeedbackResponse:
         with get_db_connection() as conn:

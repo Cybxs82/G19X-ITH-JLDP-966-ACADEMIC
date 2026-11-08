@@ -1,16 +1,18 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from unittest.mock import MagicMock
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.controllers import financial_controller
 from backend.controllers.financial_controller import require_authenticated_user
-from backend.models.schemas import AlertResponse, AlertSeverity, AlertStatus, ForecastResponse
+from backend.models.schemas import AlertResponse, AlertSeverity, AlertStatus, ForecastResponse, SummaryReportResponse
 from backend.infrastructure import database
 from backend.infrastructure.config import Settings
 from backend.infrastructure.database import get_db_connection
+from backend.repositories import financial_repository
 from backend.services import auth_service
 from main import app, repository
 
@@ -349,6 +351,91 @@ def test_get_recommendations_only_lists_existing_recommendations(monkeypatch, an
     assert response.status_code == 200
     assert response.json() == []
     assert calls == [("list", date(2026, 10, 1))]
+
+
+def test_get_summary_reports_only_lists_saved_reports(monkeypatch, analyst_session) -> None:
+    calls = []
+    monkeypatch.setattr(
+        repository,
+        "list_summary_reports",
+        lambda summary_date: calls.append(("list", summary_date)) or [],
+    )
+
+    response = client.get("/api/v1/reports", params={"summary_date": "2026-10-31"})
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert calls == [("list", date(2026, 10, 31))]
+
+
+def test_download_summary_report_pdf(monkeypatch, analyst_session) -> None:
+    pdf_content = b"%PDF-1.4 test report"
+    monkeypatch.setattr(repository, "get_summary_report_pdf", lambda report_id: pdf_content)
+
+    response = client.get("/api/v1/reports/7/pdf")
+
+    assert response.status_code == 200
+    assert response.content == pdf_content
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.headers["content-disposition"] == 'attachment; filename="reporte-resumen-7.pdf"'
+
+
+def test_download_summary_report_pdf_returns_404_when_missing(monkeypatch, analyst_session) -> None:
+    monkeypatch.setattr(repository, "get_summary_report_pdf", lambda report_id: None)
+
+    response = client.get("/api/v1/reports/7/pdf")
+
+    assert response.status_code == 404
+
+
+def test_create_summary_report_persists_requested_period(monkeypatch, analyst_session) -> None:
+    saved_report = SummaryReportResponse(
+        id=1,
+        summary_date=date(2026, 10, 31),
+        period_from=date(2026, 10, 1),
+        period_to=date(2026, 10, 31),
+        report_type="manual",
+        created_at=datetime.now(timezone.utc),
+        snapshot={
+            "period_from": "2026-10-01",
+            "period_to": "2026-10-31",
+            "last_sync": None,
+            "kpis": [],
+            "forecast": {"horizon_days": 90, "monthly_values": []},
+            "alerts": [],
+            "recommendations": [],
+        },
+    )
+    calls = []
+    monkeypatch.setattr(
+        repository,
+        "create_summary_report",
+        lambda *args: calls.append(args) or saved_report,
+    )
+
+    response = client.post(
+        "/api/v1/reports",
+        json={"period_from": "2026-10-01", "period_to": "2026-10-31", "horizon_days": 60},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["report_type"] == "manual"
+    assert calls[0][:4] == (
+        date(2026, 10, 1),
+        date(2026, 10, 31),
+        None,
+        60,
+    )
+    assert str(calls[0][4]) == "00000000-0000-0000-0000-000000000002"
+
+
+def test_create_summary_report_rejects_inverted_period(analyst_session) -> None:
+    response = client.post(
+        "/api/v1/reports",
+        json={"period_from": "2026-11-01", "period_to": "2026-10-31"},
+    )
+
+    assert response.status_code == 422
 
 
 @pytest.mark.parametrize("role", ["cfo", "analista", "administrador"])

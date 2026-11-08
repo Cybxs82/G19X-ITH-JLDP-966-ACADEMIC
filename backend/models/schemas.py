@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 import re
-from typing import List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -212,3 +212,21 @@ class DashboardResponse(BaseModel):
     forecast: ForecastResponse
     alerts: List[AlertResponse]
     recommendations: List[RecommendationResponse]
+
+
+class SummaryReportCreate(BaseModel):
+    period_from: Optional[date] = None
+    period_to: Optional[date] = None
+    cost_center_id: Optional[int] = Field(default=None, gt=0)
+    horizon_days: Literal[30, 60, 90] = 90
+
+
+class SummaryReportResponse(BaseModel):
+    id: int
+    summary_date: date
+    period_from: date
+    period_to: date
+    report_type: Literal["mensual", "manual"]
+    created_at: datetime
+    snapshot: Dict[str, Any]
+    pdf_available: bool = False
