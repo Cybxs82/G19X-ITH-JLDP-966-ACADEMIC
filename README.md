@@ -41,34 +41,55 @@ La conexión PostgreSQL usa `psycopg2` y se verifica con `SELECT 1` desde `GET /
 
 ## Instalación desde cero
 
-Sigue estos pasos en orden desde la raíz del proyecto. Necesitas PostgreSQL 15+, Python 3.11 y Node.js/npm.
+Esta guía es para Windows y PowerShell. Ejecuta los comandos desde la carpeta raíz del proyecto (donde están `main.py`, `schema.sql` y `package.json`). Necesitas:
 
-1. **Crear la base de datos y aplicar el esquema.** En PowerShell:
+- PostgreSQL 15 o superior, instalado como servidor y en ejecución. En Windows, el instalador oficial está disponible en [postgresql.org/download/windows](https://www.postgresql.org/download/windows/). Recuerda la contraseña definida para el usuario administrador durante la instalación.
+- Python 3.11 y el launcher `py`.
+- Node.js 20.9 o superior y npm.
+- El repositorio del proyecto descargado en el dispositivo.
+
+Abre PowerShell y comprueba que las herramientas estén disponibles:
+
+```powershell
+psql --version
+py -3.11 --version
+node --version
+npm --version
+```
+
+Si un comando no se reconoce, instala el componente correspondiente o agrégalo al `PATH`, cierra y vuelve a abrir PowerShell, y repite la comprobación. `psql` se instala con las herramientas de línea de comandos de PostgreSQL.
+
+1. **Crear la base de datos y aplicar el esquema.** Confirma que el servicio de PostgreSQL esté iniciado. Estos comandos son para una instalación nueva con una base vacía. El ejemplo usa el usuario administrador `postgres`; si elegiste otro durante la instalación, reemplázalo. PostgreSQL solicitará la contraseña:
    ```powershell
    psql -U postgres -c "CREATE DATABASE todo_plataforma_cfo;"
-   psql -U postgres -d todo_plataforma_cfo -f schema.sql
+   psql -v ON_ERROR_STOP=1 -U postgres -d todo_plataforma_cfo -f schema.sql
    ```
+   El segundo comando debe terminar sin errores. Si la base ya existe y tiene el esquema aplicado, omite ambos comandos; no vuelvas a ejecutar `schema.sql` sobre una base inicializada. Si la base existe pero está vacía, omite solo el comando `CREATE DATABASE` y aplica el esquema.
 
-2. **Copiar y editar `.env`.** Copia el ejemplo y edita el archivo nuevo con la configuración de tu PostgreSQL:
+2. **Configurar `.env`.** Copia el ejemplo y edita el archivo creado con los datos del servidor y el usuario que puede conectarse a la base:
    ```powershell
    Copy-Item .env.example .env
    ```
-   Define `CFO_DATABASE_URL` con el usuario, contraseña, host, puerto y nombre de la base de datos. Para desarrollo local por HTTP, conserva `CFO_SECURE_SESSION_COOKIE=false`; deja `CFO_ENABLE_DEMO_DATA=false`.
+   `CFO_DATABASE_URL` se compone así:
+   ```text
+   <esquema>://<usuario>:<contraseña>@<host>:<puerto>/<base>
+   ```
+   Para este ejemplo usa `postgresql` como esquema, `postgres` como usuario, `localhost` como host, `5432` como puerto y `todo_plataforma_cfo` como base. Reemplaza `<contraseña>` con la contraseña real y quita los marcadores `< >`. Si la contraseña contiene caracteres reservados de URL (por ejemplo `@`, `:` o `/`), codifícalos como URL. Conserva `CFO_API_URL=http://localhost:8000/api/v1`, `CFO_ALLOWED_ORIGINS=http://localhost:3000`, `CFO_ENVIRONMENT=development`, `CFO_SECURE_SESSION_COOKIE=false` y `CFO_ENABLE_DEMO_DATA=false` para el uso local descrito aquí. No compartas ni subas el archivo `.env`.
 
-3. **Crear el entorno virtual e iniciar FastAPI.**
+3. **Instalar dependencias de Python e iniciar FastAPI.** En una terminal PowerShell, desde la raíz del repositorio:
    ```powershell
    py -3.11 -m venv .venv
    .\.venv\Scripts\python.exe -m pip install -r requirements.txt
    .\.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000
    ```
-   Mantén esta terminal abierta. La API queda en `http://localhost:8000` y su documentación en `http://localhost:8000/docs`.
+   Mantén esta terminal abierta mientras uses la aplicación. La API queda en `http://localhost:8000` y su documentación en `http://localhost:8000/docs`. Si PowerShell indica que no existe `py -3.11`, instala Python 3.11 y vuelve a abrir la terminal.
 
-4. **Instalar e iniciar el frontend** en una segunda terminal desde la raíz del proyecto:
+4. **Instalar e iniciar el frontend** en una segunda terminal, también desde la raíz del repositorio. `npm ci` instala las versiones fijadas en `package-lock.json`:
    ```powershell
-   npm install
+   npm ci
    npm run dev
    ```
-   Abre [http://localhost:3000](http://localhost:3000).
+   Mantén también esta terminal abierta y abre [http://localhost:3000](http://localhost:3000). Para detener los servicios, usa `Ctrl+C` en cada terminal.
 
 5. **Registrarte.** En la pantalla inicial, selecciona **Crear cuenta**, ingresa tu nombre, correo y contraseña. En este MVP, el registro crea la cuenta con el rol `cfo` e inicia la sesión automáticamente; puedes usar la aplicación de inmediato sin que un administrador cambie tu rol.
 
@@ -88,6 +109,14 @@ Sigue estos pasos en orden desde la raíz del proyecto. Necesitas PostgreSQL 15+
 7. **Revisar el resumen.** Después de las cargas, espera ver indicadores de ingresos y gastos, comparaciones frente al presupuesto y, cuando corresponda, alertas y recomendaciones basadas en los datos. El pronóstico de flujo neto requiere al menos 180 días de movimientos bancarios; si el resumen indica que faltan datos o no muestra una proyección, verifica el histórico bancario. El pronóstico es de flujo neto, no de saldo de caja.
 
 En **Reportes**, al pulsar **Exportar reporte** en el resumen se guarda la instantánea junto con su PDF en la plataforma. La sección lista los reportes exportados y permite filtrarlos por la fecha final del resumen; cada reporte con PDF disponible puede descargarse desde allí. Abrir la sección no genera ni guarda reportes.
+
+### Comprobación y solución de problemas
+
+- Si `psql` no puede conectarse a `localhost` o rechaza la conexión, confirma que el servicio de PostgreSQL esté iniciado y que el host y puerto (normalmente `localhost:5432`) sean correctos.
+- Si aparece un error de autenticación de PostgreSQL, revisa el usuario y la contraseña en `CFO_DATABASE_URL`. La contraseña de esa URL debe corresponder al usuario configurado en PostgreSQL.
+- Si el puerto `8000` o `3000` ya está ocupado, cierra el proceso que lo usa o configura otro puerto. Si cambias el puerto del backend, actualiza `CFO_API_URL` en `.env`; si cambias el del frontend, actualiza `CFO_ALLOWED_ORIGINS` con el origen correspondiente.
+- Si el proyecto abre pero faltan forecast, alertas o recomendaciones, carga los archivos de práctica indicados arriba. Para el forecast se requieren al menos 180 días de movimientos bancarios.
+- Para comprobar que el frontend está listo para producción, ejecuta `npm run build`; para volver a iniciar después de compilar, usa `npm run start`. El uso local habitual de esta guía es `npm run dev`.
 
 Si PostgreSQL no está levantado o `CFO_DATABASE_URL` no está configurado correctamente, `/health` indicará que la base de datos no está disponible.
 

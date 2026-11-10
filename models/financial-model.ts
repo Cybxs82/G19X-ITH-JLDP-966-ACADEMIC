@@ -22,9 +22,14 @@ export type Alert = {
   title: string;
   detail: string;
   amount: string;
-  severity: "high" | "medium";
+  severity: "high" | "medium" | "low";
   area: string;
   status: "nueva" | "en_revision" | "cerrada" | "falsa";
+  accountId: number;
+  costCenterId: number | null;
+  budgetedAmount: number;
+  actualAmount: number;
+  comment: string | null;
 };
 
 export type Recommendation = {

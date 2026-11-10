@@ -21,6 +21,7 @@ def get_db_connection() -> Generator[Any, None, None]:
     if not settings.database_url:
         raise RuntimeError(
             "Falta configurar CFO_DATABASE_URL. Define una URL de conexión a PostgreSQL "
+            "en el archivo .env o en las variables de entorno."
         )
 
     import psycopg2

@@ -31,10 +31,15 @@ type ApiDashboard = {
   };
   alerts: Array<{
     id: number;
+    account_id: number;
+    cost_center_id: number | null;
+    budgeted_amount: number | string;
+    actual_amount: number | string;
     deviation_pct: number | string;
     severity: "baja" | "media" | "alta";
     status: Alert["status"];
     period: string;
+    comment: string | null;
   }>;
 };
 
@@ -109,11 +114,16 @@ function mapDashboard(data: ApiDashboard, horizonDays: DashboardFilters["horizon
       return {
         id: alert.id,
         title: "Desviación presupuestal",
-        detail: `Periodo ${alert.period}`,
+        detail: new Date(`${alert.period}T00:00:00`).toLocaleDateString("es-MX", { month: "long", year: "numeric" }),
         amount: `${deviation > 0 ? "+" : ""}${deviation.toFixed(2)}%`,
-        severity: alert.severity === "alta" ? "high" : "medium",
+        severity: alert.severity === "alta" ? "high" : alert.severity === "media" ? "medium" : "low",
         area: "Consolidado",
         status: alert.status,
+        accountId: alert.account_id,
+        costCenterId: alert.cost_center_id,
+        budgetedAmount: Number(alert.budgeted_amount),
+        actualAmount: Number(alert.actual_amount),
+        comment: alert.comment,
       };
     }),
     recommendations: [],

@@ -63,6 +63,136 @@ function formatForecastAmount(value: number): string {
   }).format(value);
 }
 
+function formatExactAmount(value: number): string {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+const evidenceLabels: Record<string, string> = {
+  regla: "Regla aplicada",
+  alertas_ids: "Alertas relacionadas",
+  kpis_ids: "Indicadores relacionados",
+  centro_costo_id: "Centro de costo",
+  valor: "Valor observado",
+  forecast: "Proyección relacionada",
+  dia_horizonte: "Horizonte",
+  fecha_objetivo: "Fecha estimada",
+  valor_predicho: "Flujo neto estimado",
+  fuentes_faltantes: "Datos faltantes",
+  kpi_codigos_faltantes: "Indicadores faltantes",
+  motivo_forecast_no_disponible: "Disponibilidad del forecast",
+};
+
+const ruleLabels: Record<string, string> = {
+  alerta_abierta_severidad_alta: "Alerta abierta de severidad alta",
+  alertas_recurrentes_por_centro: "Alertas recurrentes por centro",
+  flujo_neto_bancario_negativo: "Flujo neto bancario negativo",
+  margen_operativo_negativo: "Margen operativo negativo",
+  kpi_desviacion_presupuestal_positiva: "Desviación presupuestal positiva",
+  forecast_caja_negativa: "Flujo neto proyectado negativo",
+  datos_insuficientes: "Datos insuficientes",
+};
+
+function formatEvidenceValue(value: unknown, key: string, rule?: string): string {
+  if (value === null || value === undefined || value === "") return "No disponible";
+  if (typeof value === "boolean") return value ? "Sí" : "No";
+  if (typeof value === "number") {
+    if (key.endsWith("_ids")) return `#${value}`;
+    if (key === "dia_horizonte") return `${value} días`;
+    if (key === "valor_predicho" || (key === "valor" && rule === "flujo_neto_bancario_negativo")) {
+      return formatExactAmount(value);
+    }
+    if (key === "valor" && ["margen_operativo_negativo", "kpi_desviacion_presupuestal_positiva"].includes(rule ?? "")) {
+      return `${value.toLocaleString("es-MX", { maximumFractionDigits: 2 })}%`;
+    }
+    return value.toLocaleString("es-MX");
+  }
+  if (typeof value === "string") {
+    if (key === "regla") return ruleLabels[value] ?? value.replaceAll("_", " ");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return new Date(`${value}T00:00:00`).toLocaleDateString("es-MX", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    }
+    return value.replaceAll("_", " ");
+  }
+  return "Detalle adicional disponible";
+}
+
+function renderEvidenceValue(value: unknown, key: string, rule?: string): ReactNode {
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <>Ninguno</>;
+    return (
+      <ul className="evidence-values">
+        {value.map((item, index) => (
+          <li key={`${key}-${index}`}>{renderEvidenceValue(item, key, rule)}</li>
+        ))}
+      </ul>
+    );
+  }
+  if (typeof value === "object" && value !== null) {
+    return (
+      <dl className="evidence-list evidence-nested">
+        {Object.entries(value).map(([nestedKey, nestedValue]) => (
+          <div className="evidence-item" key={nestedKey}>
+            <dt>{evidenceLabels[nestedKey] ?? nestedKey.replaceAll("_", " ")}</dt>
+            <dd>{renderEvidenceValue(nestedValue, nestedKey, rule)}</dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+  return <>{formatEvidenceValue(value, key, rule)}</>;
+}
+
+function RecommendationEvidence({ evidence }: { evidence: Record<string, unknown> }) {
+  const rule = typeof evidence.regla === "string" ? evidence.regla : undefined;
+  const forecast = Array.isArray(evidence.forecast) ? evidence.forecast : [];
+  const fields = Object.entries(evidence).filter(([key]) => key !== "forecast");
+
+  return (
+    <div className="recommendation-evidence-content">
+      {fields.length > 0 && (
+        <dl className="evidence-list">
+          {fields.map(([key, value]) => (
+            <div className="evidence-item" key={key}>
+              <dt>{evidenceLabels[key] ?? key.replaceAll("_", " ")}</dt>
+              <dd>{renderEvidenceValue(value, key, rule)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {forecast.length > 0 && (
+        <div className="evidence-table-wrap">
+          <table className="evidence-table">
+            <thead>
+              <tr><th>Horizonte</th><th>Fecha estimada</th><th>Flujo neto</th></tr>
+            </thead>
+            <tbody>
+              {forecast.map((point, index) => {
+                if (typeof point !== "object" || point === null) return null;
+                const row = point as Record<string, unknown>;
+                return (
+                  <tr key={`${String(row.dia_horizonte)}-${index}`}>
+                    <td>{formatEvidenceValue(row.dia_horizonte, "dia_horizonte", rule)}</td>
+                    <td>{formatEvidenceValue(row.fecha_objetivo, "fecha_objetivo", rule)}</td>
+                    <td>{formatEvidenceValue(row.valor_predicho, "valor_predicho", rule)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DashboardView({ dashboard, user, dashboardError = "", recommendationsError = "", onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, onOpenReports, onOpenGuide, onUpdateAlert, filters = { periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 }, costCenters = [], onFiltersChange, activeSection = "Resumen", children }: DashboardViewProps) {
   const [activeNav, setActiveNav] = useState<string>(activeSection);
   const [underDevelopmentSection, setUnderDevelopmentSection] = useState<"Flujo de caja" | "Presupuesto" | null>(null);
@@ -338,7 +468,7 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
                 {dashboard.recommendations.map((recommendation) => (
                   <article className="recommendation" key={recommendation.id}>
                     <span className={`priority ${recommendation.priority}`}>
-                      {recommendation.priority}
+                      Prioridad {recommendation.priority}
                     </span>
                     <strong>{recommendation.situation}</strong>
                     <p><b>Impacto:</b> {recommendation.impact || "No cuantificado."}</p>
@@ -346,7 +476,7 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
                     <details className="recommendation-evidence">
                       <summary>Evidencia</summary>
                       {recommendation.evidence ? (
-                        <pre>{JSON.stringify(recommendation.evidence, null, 2)}</pre>
+                        <RecommendationEvidence evidence={recommendation.evidence} />
                       ) : (
                         <p>Sin evidencia disponible.</p>
                       )}
@@ -376,12 +506,22 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
                   <div className={`alert-icon ${alert.severity}`} />
                   <div className="alert-copy">
                     <strong>{alert.title}</strong>
-                    <span>{alert.detail}</span>
+                    <span>{alert.detail} · Cuenta #{alert.accountId}</span>
+                    <div className="alert-tags">
+                      <span className={`alert-severity ${alert.severity}`}>Severidad {alert.severity === "high" ? "alta" : alert.severity === "medium" ? "media" : "baja"}</span>
+                      <span className="alert-status">{alert.status === "en_revision" ? "En revisión" : alert.status === "nueva" ? "Nueva" : alert.status}</span>
+                    </div>
                   </div>
                   <div className="alert-amount">
                     <strong>{alert.amount}</strong>
-                    <span>sobre presupuesto</span>
+                    <span>desviación presupuestal</span>
                   </div>
+                  <dl className="alert-details">
+                    <div><dt>Presupuesto</dt><dd>{formatExactAmount(alert.budgetedAmount)}</dd></div>
+                    <div><dt>Gasto real</dt><dd>{formatExactAmount(alert.actualAmount)}</dd></div>
+                    <div><dt>Centro de costo</dt><dd>{alert.costCenterId ? `#${alert.costCenterId}` : "General"}</dd></div>
+                  </dl>
+                  {alert.comment && <p className="alert-comment"><b>Comentario:</b> {alert.comment}</p>}
                   {onUpdateAlert && (
                     <details className="alert-management">
                       <summary>Gestionar</summary>

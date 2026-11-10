@@ -1,6 +1,6 @@
 # PRD — Plataforma de Inteligencia Financiera para CFO (v3)
 
-> **Estado del documento:** Este PRD conserva objetivos de producto a futuro. El MVP local implementado y sus limitaciones se describen en `DOCUMENTACION_MVP.md`; las funciones planeadas que aún no existen en el código no deben interpretarse como entregadas.
+> **Estado del documento:** Este PRD conserva objetivos de producto a futuro. El MVP local implementado y sus limitaciones se describen en `DOCUMENTACION_MVP V2.md`; las funciones planeadas que aún no existen en el código no deben interpretarse como entregadas.
 
 ## 0. Resumen ejecutivo
 
@@ -107,7 +107,7 @@ Notas:
 | Predicción | Forecast de flujo de caja a 90 días, con vistas a 30/60/90 días e intervalo de confianza (sección 14) |
 | Alertas | Desviación presupuestal por encima de umbral configurable, con severidad, estado y responsable (sección 15) |
 | Reglas explicables | Resumen ejecutivo y recomendaciones deterministas basados en alertas, KPIs y forecast disponibles, con evidencia y controles de datos insuficientes (sección 16) |
-| Dashboard | Objetivo: vista única con KPIs, forecast, alertas y recomendaciones. En el MVP actual la UI no está conectada para mostrar las recomendaciones generadas por reglas |
+| Dashboard | Objetivo: vista única con KPIs, forecast, alertas y recomendaciones. El MVP muestra las recomendaciones persistidas; se generan explícitamente mediante un endpoint autenticado disponible para CFO y administrador |
 | Seguridad | Inicio de sesión y creación de cuentas contra PostgreSQL, control de acceso por rol y auditoría de accesos y cambios |
 
 ---
@@ -269,7 +269,7 @@ Los valores siguientes son metas para una futura versión desplegada. El MVP act
 
 ## 13. Catálogo objetivo de KPIs (estructura y ejemplos concretos)
 
-Este catálogo expresa el diseño financiero objetivo, no implica que todos estos KPIs estén implementados. El estado de implementación y los cuatro indicadores disponibles en el MVP se especifican en `DOCUMENTACION_MVP.md`, sección 3.
+Este catálogo expresa el diseño financiero objetivo, no implica que todos estos KPIs estén implementados. El estado de implementación y los cuatro indicadores disponibles en el MVP se especifican en `DOCUMENTACION_MVP V2.md`, sección 3.
 
 Cada KPI se define con:
 
@@ -517,7 +517,7 @@ Cada KPI se define con:
 **Alcance:**
 
 - Generar un **resumen ejecutivo** y **recomendaciones** mediante reglas deterministas y plantillas a partir de alertas activas, KPIs calculados y forecast disponible.
-- Declaración de uso de IA durante el desarrollo: consultar `DOCUMENTACION_MVP.md`, sección 1. En ejecución, las recomendaciones se generan con reglas y plantillas, sin IA.
+- Declaración de uso de GitHub Copilot durante el desarrollo: consultar `DOCUMENTACION_MVP V2.md`, sección 1. En ejecución, las recomendaciones se generan con reglas y plantillas, sin IA.
 - Identificar las reglas que se activaron y vincular cada resultado con el periodo y las métricas de origen.
 - En tiempo de ejecución no se utiliza IA generativa, LLM, Azure OpenAI ni otro servicio de pago. No se ofrecen preguntas abiertas o guiadas en este MVP.
 
@@ -592,7 +592,7 @@ Cada KPI se define con:
 - Forecast lineal diario del flujo neto bancario a 90 días, con mínimo de 180 días de histórico; no proyecta saldo de caja.
 - Alertas presupuestarias con límites fijos de 10 % y 20 %.
 - Aplicación web Next.js y API FastAPI con autenticación PostgreSQL y roles.
-- Generación determinista de recomendaciones mediante endpoint autenticado; el dashboard aún no las muestra en su interfaz, y la lectura de recomendaciones está condicionada por `CFO_ENABLE_DEMO_DATA`.
+- Generación determinista de recomendaciones mediante endpoint autenticado disponible para CFO y administrador. El dashboard muestra las recomendaciones persistidas mediante una consulta de lectura; abrirlo no las genera automáticamente.
 
 **Pendiente para una versión futura:**
 

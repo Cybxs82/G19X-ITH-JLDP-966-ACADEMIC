@@ -12,7 +12,7 @@
 
 ### 1.1 Apoyo de IA durante el desarrollo
 
-Durante el desarrollo se utilizó IA como herramienta de apoyo para proponer y documentar reglas, fórmulas y condiciones de recomendación; colaborar parcialmente en el diseño del esquema de base de datos; y apoyar gran parte del diseño visual y frontend. El desarrollador definió e implementó principalmente el backend, revisó y adaptó las propuestas, integró los componentes y verificó el comportamiento del sistema mediante pruebas y validación del código. La IA fue una herramienta de asistencia al desarrollo; no es un componente ni una dependencia del producto en ejecución.
+Durante el desarrollo se utilizó **GitHub Copilot** como asistente de IA para proponer y documentar reglas, fórmulas y condiciones de recomendación; colaborar parcialmente en el diseño del esquema de base de datos; y apoyar gran parte del diseño visual y frontend. El desarrollador definió e implementó principalmente el backend, revisó y adaptó las propuestas, integró los componentes y verificó el comportamiento del sistema mediante pruebas y validación del código. GitHub Copilot fue una herramienta de asistencia al desarrollo; no es un componente ni una dependencia del producto en ejecución.
 
 ### 1.2 Funcionamiento sin IA en tiempo de ejecución
 

@@ -80,7 +80,7 @@ CFO_SECURE_SESSION_COOKIE=false
 * **Alertas (`GET /api/v1/alerts`):** Calcula desviaciones al comparar movimientos con el presupuesto importado. Se genera alerta desde una desviación absoluta de **10 %**; es media entre **10 % y menos de 20 %**, y alta desde **20 %**. Permite cambiar el estado y añadir comentarios con `PATCH /api/v1/alerts/{id}`.
 * **Recomendaciones y retroalimentación (API):** `POST /api/v1/recommendations/generate` evalúa reglas deterministas y guarda sus resultados y evidencia; `GET /api/v1/recommendations` consulta registros, y `POST /api/v1/feedback` registra retroalimentación. Importante: en la configuración actual, el endpoint GET devuelve una lista vacía con `CFO_ENABLE_DEMO_DATA=false`; no actives el modo demo en una base con datos reales, pues la inicialización de demo puede borrar filas financieras. Si faltan datos, el sistema indica su ausencia sin inventar cifras.
 
-Para conocer el uso de IA como herramienta de apoyo durante el desarrollo y confirmar que no se utiliza en tiempo de ejecución, consulta `DOCUMENTACION_MVP.md`, sección 1.
+Para conocer el uso de GitHub Copilot como herramienta de apoyo durante el desarrollo y confirmar que no se utiliza en tiempo de ejecución, consulta `DOCUMENTACION_MVP V2.md`, sección 1.
 
 ---
 
