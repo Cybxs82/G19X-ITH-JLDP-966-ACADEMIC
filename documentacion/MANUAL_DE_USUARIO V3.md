@@ -51,12 +51,13 @@ CFO_SECURE_SESSION_COOKIE=false
 
 **Una vez que ya iniciaste sesión y estás dentro del proyecto**, es obligatorio importar los archivos de prueba para calcular KPIs y desviaciones:
 
-1. En la **carpeta raíz del proyecto** hay una carpeta llamada **`datos/`** que contiene los documentos listos para probar la importación.
-2. Dentro de la plataforma web, ve a la vista **Carga ERP**.
-3. **Se impulsa a usar sí o sí los archivos de la carpeta `datos/`** en este orden para el correcto funcionamiento y demostración del proyecto:
-   * **Primero:** Selecciona origen **ERP** y sube **`datos/erp_datasheet_50_lineas.csv`**.
-   * **Segundo:** Selecciona origen **Presupuesto** y sube **`datos/presupuesto_template.csv`**.
-   * **Tercero (Opcional):** Selecciona **Banco** para cargar archivos de movimientos bancarios de `datos/`.
+1. En la carpeta raíz, abre **`datos/`**, que contiene archivos CSV de práctica compatibles con la carga.
+2. Dentro de la plataforma web, ve a la vista **Carga ERP** y carga estos archivos en el orden indicado:
+   * **Primero:** Selecciona origen **ERP** y sube **`datos/practica_transacciones_erp.csv`**.
+   * **Segundo:** Selecciona origen **Banco** y sube **`datos/practica_transacciones_bancarias.csv`**.
+   * **Tercero:** Selecciona origen **Presupuesto** y sube **`datos/practica_presupuestos.csv`**.
+
+   La muestra bancaria cubre más de 180 días en cada centro de costo para habilitar el histórico y pronóstico filtrados. Los presupuestos de cuentas con gastos registrados se alinean con los importes ERP e incluyen desviaciones de ejemplo para demostrar alertas.
 
 *(También puedes importarlos por terminal si lo prefieres):*
 ```powershell

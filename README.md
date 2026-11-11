@@ -106,7 +106,9 @@ Si un comando no se reconoce, instala el componente correspondiente o agrégalo 
 
    Conserva el prefijo `practica_` en los nombres de los últimos tres archivos para que la acción **Eliminar datos de práctica** pueda reconocerlos. ERP/Banco requieren `fecha` y `monto`; Presupuesto requiere `periodo`, `monto_presupuestado`, `cuenta` y `centro_costo`.
 
-7. **Revisar el resumen.** Después de las cargas, espera ver indicadores de ingresos y gastos, comparaciones frente al presupuesto y, cuando corresponda, alertas y recomendaciones basadas en los datos. El pronóstico de flujo neto requiere al menos 180 días de movimientos bancarios; si el resumen indica que faltan datos o no muestra una proyección, verifica el histórico bancario. El pronóstico es de flujo neto, no de saldo de caja.
+   La muestra bancaria asigna depósitos a `CC-COM` y distribuye pagos entre los centros existentes, con más de 180 días de historial en cada centro. Los presupuestos de cuentas con gastos registrados se alinean con los importes ERP, conservando algunas desviaciones para demostrar alertas. Vuelve a cargar los archivos con sus nombres `practica_` para actualizar una importación previa.
+
+7. **Revisar el resumen y Flujo de caja.** Después de las cargas, espera ver indicadores de ingresos y gastos, comparaciones frente al presupuesto y, cuando corresponda, alertas y recomendaciones. En Flujo de caja, el pronóstico requiere al menos 180 días de movimientos bancarios en el centro seleccionado; la muestra incluye ese histórico por centro. El pronóstico es de flujo neto, no de saldo de caja.
 
 En **Reportes**, al pulsar **Exportar reporte** en el resumen se guarda una instantánea del reporte en la plataforma y puedes elegir descargarla como PDF o Excel (`.xlsx`). El libro de Excel incluye hojas de indicadores, pronóstico, alertas y recomendaciones; sus importes y porcentajes se guardan como valores numéricos. La sección lista los reportes exportados y permite filtrarlos por la fecha final del resumen; cada reporte puede descargarse en ambos formatos desde allí. Abrir la sección no genera ni guarda reportes.
 
