@@ -34,6 +34,7 @@ export default function GuidePage() {
       onLogout={async () => { await logout(); router.replace("/"); }}
       onEditProfile={() => router.push("/profile")}
       onOpenDashboard={() => router.push("/")}
+      onOpenCashFlow={() => router.push("/cash-flow")}
       onOpenIngestion={() => router.push("/ingestion")}
       onOpenReports={() => router.push("/reports")}
       onOpenGuide={() => router.push("/guide")}
@@ -60,7 +61,7 @@ export default function GuidePage() {
             </article>
             <article className="guide-card">
               <h2>2. Filtra el resumen</h2>
-              <p>En «Resumen», selecciona fechas y área. El horizonte de proyección puede ser de 30, 60 o 90 días.</p>
+              <p>En «Resumen», selecciona fechas y área. En «Flujo de caja» consulta movimientos netos históricos, su proyección y alertas relacionadas.</p>
             </article>
             <article className="guide-card">
               <h2>3. Revisa los resultados</h2>
@@ -119,6 +120,11 @@ export default function GuidePage() {
                   <li><strong>Etiqueta del mes y «d»:</strong> mes pronosticado y cantidad de días de ese mes incluidos en el horizonte seleccionado.</li>
                 </ul>
                 <p>El flujo neto no equivale al saldo de caja: no incluye por sí solo un saldo inicial.</p>
+              </section>
+              <section className="guide-topic">
+                <h4>Apartado Flujo de caja</h4>
+                <p>Consulta el flujo neto mensual registrado y el pronosticado, filtra por fechas, centro de costo y horizonte de 30, 60 o 90 días, y revisa el intervalo predictivo y las alertas presupuestales abiertas. El total histórico suma los periodos mensuales disponibles; el total proyectado suma los meses cubiertos por el horizonte.</p>
+                <p>Esta versión no calcula saldo inicial/final, caja disponible ni runway. El modelo usa movimientos bancarios pasados y no incluye vencimientos futuros de cuentas por cobrar/pagar, deuda, ni escenarios. Confirma la posición real con Tesorería antes de decidir.</p>
               </section>
               <section className="guide-topic">
                 <h4>Recomendaciones</h4>

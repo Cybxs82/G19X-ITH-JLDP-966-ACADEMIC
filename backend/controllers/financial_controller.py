@@ -198,6 +198,27 @@ def create_router(repository: PostgreSQLRepository) -> APIRouter:
             headers={"Content-Disposition": f'attachment; filename="reporte-resumen-{report_id}.pdf"'},
         )
 
+    @router.get(
+        "/reports/{report_id}/excel",
+        dependencies=[Depends(require_authenticated_user)],
+    )
+    def download_summary_report_excel(report_id: int) -> Response:
+        report = repository.get_summary_report_snapshot(report_id)
+        if report is None:
+            raise HTTPException(status_code=404, detail="El reporte no está disponible")
+        from ..services.report_excel_service import generate_summary_report_excel
+
+        excel_content = generate_summary_report_excel(
+            report["period_from"],
+            report["period_to"],
+            report["snapshot"],
+        )
+        return Response(
+            content=excel_content,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="reporte-resumen-{report_id}.xlsx"'},
+        )
+
     @router.post(
         "/reports",
         response_model=SummaryReportResponse,

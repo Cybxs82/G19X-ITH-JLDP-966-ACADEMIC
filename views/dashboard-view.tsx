@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { AuthUser } from "@/controllers/auth-controller";
-import { saveSummaryReport } from "@/controllers/reports-controller";
 import type { Alert, CostCenter, DashboardFilters, FinancialDashboard } from "@/models/financial-model";
+import { ReportExportDialog } from "@/views/report-export-dialog";
 
 type DashboardViewProps = {
   dashboard: FinancialDashboard;
@@ -14,6 +14,7 @@ type DashboardViewProps = {
   onLogout: () => Promise<void>;
   onEditProfile: () => void;
   onOpenDashboard: () => void;
+  onOpenCashFlow: () => void;
   onOpenIngestion: () => void;
   onOpenReports: () => void;
   onOpenGuide: () => void;
@@ -21,7 +22,7 @@ type DashboardViewProps = {
   filters?: DashboardFilters;
   costCenters?: CostCenter[];
   onFiltersChange?: (filters: DashboardFilters) => void;
-  activeSection?: "Resumen" | "Reportes" | "Carga ERP" | "Guía de uso";
+  activeSection?: "Resumen" | "Flujo de caja" | "Reportes" | "Carga ERP" | "Guía de uso";
   children?: ReactNode;
 };
 
@@ -193,7 +194,7 @@ function RecommendationEvidence({ evidence }: { evidence: Record<string, unknown
   );
 }
 
-export function DashboardView({ dashboard, user, dashboardError = "", recommendationsError = "", onLogout, onEditProfile, onOpenDashboard, onOpenIngestion, onOpenReports, onOpenGuide, onUpdateAlert, filters = { periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 }, costCenters = [], onFiltersChange, activeSection = "Resumen", children }: DashboardViewProps) {
+export function DashboardView({ dashboard, user, dashboardError = "", recommendationsError = "", onLogout, onEditProfile, onOpenDashboard, onOpenCashFlow, onOpenIngestion, onOpenReports, onOpenGuide, onUpdateAlert, filters = { periodFrom: "", periodTo: "", costCenterId: "", horizonDays: 90 }, costCenters = [], onFiltersChange, activeSection = "Resumen", children }: DashboardViewProps) {
   const [activeNav, setActiveNav] = useState<string>(activeSection);
   const [underDevelopmentSection, setUnderDevelopmentSection] = useState<"Flujo de caja" | "Presupuesto" | null>(null);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
@@ -203,8 +204,7 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [alertError, setAlertError] = useState("");
-  const [reportError, setReportError] = useState("");
-  const [isSavingReport, setIsSavingReport] = useState(false);
+  const [isReportExportOpen, setIsReportExportOpen] = useState(false);
   const [alertComments, setAlertComments] = useState<Record<number, string>>({});
   const [updatingAlertId, setUpdatingAlertId] = useState<number | null>(null);
 
@@ -228,18 +228,6 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
       setAlertError(error instanceof Error ? error.message : "No se pudo actualizar la alerta.");
     } finally {
       setUpdatingAlertId(null);
-    }
-  }
-
-  async function exportSummary() {
-    setReportError("");
-    setIsSavingReport(true);
-    try {
-      await saveSummaryReport(filters);
-    } catch (error) {
-      setReportError(error instanceof Error ? error.message : "No se pudo guardar el reporte.");
-    } finally {
-      setIsSavingReport(false);
     }
   }
 
@@ -271,8 +259,9 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
               onClick={() => {
                 setActiveNav(item);
                 setUnderDevelopmentSection(
-                  item === "Flujo de caja" || item === "Presupuesto" ? item : null,
+                  item === "Presupuesto" ? item : null,
                 );
+                if (item === "Flujo de caja") onOpenCashFlow();
                 if (item === "Carga ERP") onOpenIngestion();
                 if (item === "Reportes") onOpenReports();
                 if (item === "Guía de uso") onOpenGuide();
@@ -320,7 +309,7 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
           {logoutError && <p className="auth-error" role="alert">{logoutError}</p>}
           {dashboardError && <p className="auth-error" role="alert">{dashboardError}</p>}
           {alertError && <p className="auth-error" role="alert">{alertError}</p>}
-          {reportError && <p className="auth-error" role="alert">{reportError}</p>}
+          {isReportExportOpen && <ReportExportDialog filters={filters} onClose={() => setIsReportExportOpen(false)} />}
           {underDevelopmentSection ? (
             <section className="panel under-development" aria-labelledby="under-development-title" aria-live="polite">
               <p className="eyebrow">EN DESARROLLO</p>
@@ -337,8 +326,8 @@ export function DashboardView({ dashboard, user, dashboardError = "", recommenda
               <h1>Resumen financiero</h1>
               <p className="heading-copy">Una lectura clara de la salud financiera de tu empresa.</p>
             </div>
-            <button type="button" className="export-button" onClick={() => void exportSummary()} disabled={isSavingReport}>
-              {isSavingReport ? "Guardando..." : "Exportar reporte"} <span aria-hidden="true">↓</span>
+            <button type="button" className="export-button" onClick={() => setIsReportExportOpen(true)}>
+              Exportar reporte <span aria-hidden="true">↓</span>
             </button>
           </div>
 

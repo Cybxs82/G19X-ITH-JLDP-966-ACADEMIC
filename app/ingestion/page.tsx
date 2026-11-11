@@ -35,6 +35,7 @@ export default function IngestionPage() {
       onLogout={async () => { await logout(); router.replace("/"); }}
       onEditProfile={() => router.push("/profile")}
       onOpenDashboard={() => router.push("/")}
+      onOpenCashFlow={() => router.push("/cash-flow")}
       onOpenIngestion={() => router.push("/ingestion")}
       onOpenReports={() => router.push("/reports")}
       onOpenGuide={() => router.push("/guide")}

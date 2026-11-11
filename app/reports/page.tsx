@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentUser, logout, type AuthUser } from "@/controllers/auth-controller";
-import { getSavedSummaryReports } from "@/controllers/reports-controller";
+import { downloadSummaryReportExcel, getSavedSummaryReports } from "@/controllers/reports-controller";
 import { financialDashboard } from "@/models/financial-model";
 import type { SavedSummaryReport } from "@/models/report-model";
 import { DashboardView } from "@/views/dashboard-view";
@@ -109,6 +109,20 @@ export default function ReportsPage() {
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [downloadError, setDownloadError] = useState("");
+  const [downloadingExcelReportId, setDownloadingExcelReportId] = useState<number | null>(null);
+
+  async function downloadExcel(reportId: number) {
+    setDownloadError("");
+    setDownloadingExcelReportId(reportId);
+    try {
+      await downloadSummaryReportExcel(reportId);
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : "No se pudo descargar el archivo Excel.");
+    } finally {
+      setDownloadingExcelReportId(null);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -147,6 +161,7 @@ export default function ReportsPage() {
       onLogout={async () => { await logout(); router.replace("/"); }}
       onEditProfile={() => router.push("/profile")}
       onOpenDashboard={() => router.push("/")}
+      onOpenCashFlow={() => router.push("/cash-flow")}
       onOpenIngestion={() => router.push("/ingestion")}
       onOpenReports={() => router.push("/reports")}
       onOpenGuide={() => router.push("/guide")}
@@ -173,6 +188,7 @@ export default function ReportsPage() {
         </div>
 
         {errorMessage && <p className="auth-error" role="alert">{errorMessage}</p>}
+        {downloadError && <p className="auth-error" role="alert">{downloadError}</p>}
         {!errorMessage && filteredReports.length === 0 && (
           <p className="data-empty reports-empty">
             {reports.length === 0 ? "Aún no hay reportes guardados." : "No hay reportes para esa fecha."}
@@ -204,6 +220,14 @@ export default function ReportsPage() {
                       Descargar PDF
                     </a>
                   )}
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => void downloadExcel(report.id)}
+                    disabled={downloadingExcelReportId === report.id}
+                  >
+                    {downloadingExcelReportId === report.id ? "Preparando Excel..." : "Descargar Excel"}
+                  </button>
                 </div>
               </div>
               {selectedReport && selectedReport.id === report.id && <SavedReportDetails report={report} />}

@@ -742,6 +742,23 @@ class PostgreSQLRepository:
                 row = cursor.fetchone()
         return bytes(row[0]) if row and row[0] is not None else None
 
+    def get_summary_report_snapshot(self, report_id: int) -> Optional[Dict[str, Any]]:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT periodo_desde, periodo_hasta, instantanea FROM reportes_resumen WHERE id = %s",
+                    (report_id,),
+                )
+                row = cursor.fetchone()
+        if row is None:
+            return None
+        snapshot = row[2] if isinstance(row[2], dict) else json.loads(row[2])
+        return {
+            "period_from": row[0].isoformat(),
+            "period_to": row[1].isoformat(),
+            "snapshot": snapshot,
+        }
+
     def create_summary_report(
         self,
         period_from: date,

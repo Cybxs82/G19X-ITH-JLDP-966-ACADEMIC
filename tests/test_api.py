@@ -388,6 +388,35 @@ def test_download_summary_report_pdf_returns_404_when_missing(monkeypatch, analy
     assert response.status_code == 404
 
 
+def test_download_summary_report_excel(monkeypatch, analyst_session) -> None:
+    report = {
+        "period_from": "2026-10-01",
+        "period_to": "2026-10-31",
+        "snapshot": {"kpis": [], "forecast": {}, "alerts": [], "recommendations": []},
+    }
+    excel_content = b"test xlsx"
+    monkeypatch.setattr(repository, "get_summary_report_snapshot", lambda report_id: report)
+    monkeypatch.setattr(
+        "backend.services.report_excel_service.generate_summary_report_excel",
+        lambda period_from, period_to, snapshot: excel_content,
+    )
+
+    response = client.get("/api/v1/reports/7/excel")
+
+    assert response.status_code == 200
+    assert response.content == excel_content
+    assert response.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    assert response.headers["content-disposition"] == 'attachment; filename="reporte-resumen-7.xlsx"'
+
+
+def test_download_summary_report_excel_returns_404_when_missing(monkeypatch, analyst_session) -> None:
+    monkeypatch.setattr(repository, "get_summary_report_snapshot", lambda report_id: None)
+
+    response = client.get("/api/v1/reports/7/excel")
+
+    assert response.status_code == 404
+
+
 def test_create_summary_report_persists_requested_period(monkeypatch, analyst_session) -> None:
     saved_report = SummaryReportResponse(
         id=1,

@@ -108,7 +108,7 @@ Si un comando no se reconoce, instala el componente correspondiente o agrégalo 
 
 7. **Revisar el resumen.** Después de las cargas, espera ver indicadores de ingresos y gastos, comparaciones frente al presupuesto y, cuando corresponda, alertas y recomendaciones basadas en los datos. El pronóstico de flujo neto requiere al menos 180 días de movimientos bancarios; si el resumen indica que faltan datos o no muestra una proyección, verifica el histórico bancario. El pronóstico es de flujo neto, no de saldo de caja.
 
-En **Reportes**, al pulsar **Exportar reporte** en el resumen se guarda la instantánea junto con su PDF en la plataforma. La sección lista los reportes exportados y permite filtrarlos por la fecha final del resumen; cada reporte con PDF disponible puede descargarse desde allí. Abrir la sección no genera ni guarda reportes.
+En **Reportes**, al pulsar **Exportar reporte** en el resumen se guarda una instantánea del reporte en la plataforma y puedes elegir descargarla como PDF o Excel (`.xlsx`). El libro de Excel incluye hojas de indicadores, pronóstico, alertas y recomendaciones; sus importes y porcentajes se guardan como valores numéricos. La sección lista los reportes exportados y permite filtrarlos por la fecha final del resumen; cada reporte puede descargarse en ambos formatos desde allí. Abrir la sección no genera ni guarda reportes.
 
 ### Comprobación y solución de problemas
 

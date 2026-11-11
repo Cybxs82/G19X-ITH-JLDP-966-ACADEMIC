@@ -10,11 +10,18 @@ export type Kpi = {
 };
 
 export type ForecastPoint = {
+  period: string;
   month: string;
   days: number;
   projected: number;
   lower: number;
   upper: number;
+};
+
+export type HistoricalCashFlowPoint = {
+  period: string;
+  month: string;
+  net: number;
 };
 
 export type Alert = {
@@ -55,6 +62,7 @@ export type FinancialDashboard = {
   lastSync: string;
   forecastDays: number;
   kpis: Kpi[];
+  cashFlowHistory: HistoricalCashFlowPoint[];
   forecast: ForecastPoint[];
   alerts: Alert[];
   recommendations: Recommendation[];
@@ -65,6 +73,7 @@ export const financialDashboard: FinancialDashboard = {
   lastSync: "Sin cargas",
   forecastDays: 0,
   kpis: [],
+  cashFlowHistory: [],
   forecast: [],
   alerts: [],
   recommendations: [],

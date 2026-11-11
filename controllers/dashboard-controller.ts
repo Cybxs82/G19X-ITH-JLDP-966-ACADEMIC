@@ -80,9 +80,13 @@ function mapRecommendations(recommendations: ApiRecommendation[]): FinancialDash
 
 function mapDashboard(data: ApiDashboard, horizonDays: DashboardFilters["horizonDays"]): FinancialDashboard {
   const latestKpis = new Map<string, ApiDashboard["kpis"][number]>();
+  const historyByPeriod = new Map<string, number>();
   for (const kpi of data.kpis) {
     const current = latestKpis.get(kpi.code);
     if (!current || kpi.period > current.period) latestKpis.set(kpi.code, kpi);
+    if (kpi.code === "flujo_neto_bancario") {
+      historyByPeriod.set(kpi.period, (historyByPeriod.get(kpi.period) ?? 0) + Number(kpi.value));
+    }
   }
   return {
     period: `${new Date(`${data.period_from}T00:00:00`).toLocaleDateString("es-MX")} - ${new Date(`${data.period_to}T00:00:00`).toLocaleDateString("es-MX")}`,
@@ -102,7 +106,15 @@ function mapDashboard(data: ApiDashboard, horizonDays: DashboardFilters["horizon
         tone: (["teal", "blue", "amber", "coral"] as const)[index % 4],
       };
     }),
+    cashFlowHistory: [...historyByPeriod.entries()]
+      .sort(([periodA], [periodB]) => periodA.localeCompare(periodB))
+      .map(([period, net]) => ({
+        period,
+        month: new Date(`${period}T00:00:00`).toLocaleDateString("es-MX", { month: "short", year: "2-digit" }),
+        net,
+      })),
     forecast: data.forecast.monthly_values.map((point) => ({
+      period: point.period,
       month: new Date(`${point.period}T00:00:00`).toLocaleDateString("es-MX", { month: "short", year: "2-digit" }),
       days: point.days,
       projected: point.predicted_value,
@@ -153,7 +165,13 @@ export async function getFinancialDashboard(filters: DashboardFilters): Promise<
   query.set("horizon_days", String(filters.horizonDays));
   const suffix = query.size > 0 ? `?${query.toString()}` : "";
   const response = await fetch(`/api/dashboard${suffix}`, { credentials: "same-origin", cache: "no-store" });
-  if (!response.ok) throw new Error(`Dashboard API returned ${response.status}`);
+  if (!response.ok) {
+    if (response.headers.get("content-type")?.includes("application/json")) {
+      const body = (await response.json()) as { detail?: unknown };
+      if (typeof body.detail === "string") throw new Error(body.detail);
+    }
+    throw new Error(`No se pudo cargar el dashboard (${response.status}).`);
+  }
   return mapDashboard((await response.json()) as ApiDashboard, filters.horizonDays);
 }
 

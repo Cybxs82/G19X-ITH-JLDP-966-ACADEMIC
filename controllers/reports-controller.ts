@@ -35,3 +35,20 @@ export async function saveSummaryReport(filters: DashboardFilters): Promise<Save
   if (!response.ok) throw new Error(await readError(response));
   return (await response.json()) as SavedSummaryReport;
 }
+
+export async function downloadSummaryReportExcel(reportId: number): Promise<void> {
+  const response = await fetch(`/api/reports/${reportId}/excel`, {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  const file = await response.blob();
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `reporte-resumen-${reportId}.xlsx`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
